@@ -45,7 +45,7 @@ import { KeystrokeCaptureService } from '../../../core/services/keystroke-captur
 
       <div class="meta-row">
         <span class="keystroke-badge" [class.active]="captureService.isRecording()">
-          {{ captureService.isRecording() ? '● Captura Ativa (performance.now)' : '○ Aguardando Foco' }}
+          {{ captureService.isRecording() ? '● Captura Ativa' : '○ Aguardando Foco' }}
         </span>
         <span class="key-count">
           Caracteres: {{ captureService.currentText().length }}
