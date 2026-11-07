@@ -6,3 +6,8 @@ dist
 .vscode
 .DS_Store
 npm-debug.log
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+
