@@ -2,7 +2,6 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, catchError, of } from 'rxjs';
 import {
-  AlgorithmOption,
   AuthenticationPayload,
   AuthenticationResponse,
   EnrollmentPayload
@@ -15,51 +14,6 @@ import { RegistrationRequest } from '../models/user.model';
 export class BiometricApiService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = '/api';
-
-  getAvailableAlgorithms(): Observable<AlgorithmOption[]> {
-    const algorithms: AlgorithmOption[] = [
-      {
-        id: 'RANDOM_FOREST_BASELINE',
-        name: 'Random Forest (Baseline)',
-        description: 'Classificador baseado em florestas aleatórias com hiperparâmetros padrão do scikit-learn.',
-        hasHPO: false
-      },
-      {
-        id: 'RANDOM_FOREST_HPO',
-        name: 'Random Forest (HPO por Usuário)',
-        description: 'Random Forest com otimização de hiperparâmetros ajustada para o perfil biométrico do usuário.',
-        hasHPO: true
-      },
-      {
-        id: 'KNN_BASELINE',
-        name: 'k-Nearest Neighbors (Baseline)',
-        description: 'Classificador k-NN padrão com métrica euclidiana.',
-        hasHPO: false
-      },
-      {
-        id: 'KNN_HPO',
-        name: 'k-Nearest Neighbors (HPO por Usuário)',
-        description: 'k-NN com seleção otimizada de k vizinhos e função de pesos por usuário.',
-        hasHPO: true
-      },
-      {
-        id: 'MLP_BASELINE',
-        name: 'Multi-Layer Perceptron (Baseline)',
-        description: 'Rede Neural feedforward com topologia e regularização padrão.',
-        hasHPO: false
-      },
-      {
-        id: 'MLP_HPO',
-        name: 'Multi-Layer Perceptron (HPO por Usuário)',
-        description: 'MLP com busca e sintonia de camadas ocultas, solvers e alpha otimizados.',
-        hasHPO: true
-      }
-    ];
-
-    return this.http
-      .get<AlgorithmOption[]>(`${this.baseUrl}/algorithms`)
-      .pipe(catchError(() => of(algorithms)));
-  }
 
   registerUser(request: RegistrationRequest): Observable<{ success: boolean; message: string }> {
     return this.http

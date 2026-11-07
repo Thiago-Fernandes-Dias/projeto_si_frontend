@@ -59,7 +59,7 @@ O frontend está configurado via [`proxy.conf.json`](proxy.conf.json) para repas
 
 ### Passo 4: Executar a Suíte de Testes Automatizados
 ```bash
-# Testes unitários do Frontend (34 testes Jasmine/Karma)
+# Testes unitários do Frontend (33 testes Jasmine/Karma)
 make test
 
 # Testes unitários da Mock API (6 testes Python unittest)
@@ -85,7 +85,6 @@ A Mock API localiza-se na pasta dedicada [`mock_api/`](mock_api/) e foi projetad
 | Método | Endpoint | Descrição |
 |---|---|---|
 | `GET` | `/api/health` | Verificação de integridade e status da API |
-| `GET` | `/api/algorithms` | Lista os modelos de Machine Learning (RF, k-NN, MLP) |
 | `POST` | `/api/register` | Recebe usuário e senha cadastrados |
 | `POST` | `/api/enrollment` | Recebe o lote com as 5 amostras e calcula a média de Hold Time |
 | `POST` | `/api/authenticate` | Valida credencial e compara o ritmo de digitação ($H$), retornando `GENUINE` ou `IMPOSTOR` |
@@ -141,7 +140,7 @@ O projeto inclui um [Makefile](Makefile) que padroniza os comandos mais frequent
 | `make help` | Exibe o menu com todos os comandos disponíveis |
 | `make install` | Instala dependências do frontend via npm |
 | `make dev` | Inicia o servidor Angular local com proxy em `http://localhost:4200` |
-| `make test` | Executa a suíte de 34 testes unitários do frontend em modo headless |
+| `make test` | Executa a suíte de 33 testes unitários do frontend em modo headless |
 | `make build` | Compila o bundle otimizado de produção em `dist/` |
 | `make mock-install` | Instala dependências Python da Mock API (`flask`, `flask-cors`) |
 | `make mock-dev` | Inicia a Mock API Python na porta `5000` |
