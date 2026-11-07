@@ -1,0 +1,87 @@
+import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { EnrollmentComponent } from './enrollment.component';
+import { Router } from '@angular/router';
+import { UserSessionService } from '../../core/services/user-session.service';
+import { KeystrokeCaptureService } from '../../core/services/keystroke-capture.service';
+import { BiometricApiService } from '../../core/services/biometric-api.service';
+import { of } from 'rxjs';
+
+describe('EnrollmentComponent', () => {
+  let component: EnrollmentComponent;
+  let fixture: ComponentFixture<EnrollmentComponent>;
+  let routerSpy: jasmine.SpyObj<Router>;
+  let userSession: UserSessionService;
+  let captureService: KeystrokeCaptureService;
+  let biometricApiSpy: jasmine.SpyObj<BiometricApiService>;
+
+  beforeEach(async () => {
+    routerSpy = jasmine.createSpyObj('Router', ['navigate']);
+    biometricApiSpy = jasmine.createSpyObj('BiometricApiService', ['submitEnrollment']);
+    biometricApiSpy.submitEnrollment.and.returnValue(
+      of({ success: true, message: 'Ok', samplesRegistered: 5 })
+    );
+
+    await TestBed.configureTestingModule({
+      imports: [EnrollmentComponent],
+      providers: [
+        { provide: Router, useValue: routerSpy },
+        { provide: BiometricApiService, useValue: biometricApiSpy }
+      ]
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(EnrollmentComponent);
+    component = fixture.componentInstance;
+    userSession = TestBed.inject(UserSessionService);
+    captureService = TestBed.inject(KeystrokeCaptureService);
+
+    userSession.registerUser('teste_user', '.tie5Roanl');
+    fixture.detectChanges();
+  });
+
+  it('deve criar o componente', () => {
+    expect(component).toBeTruthy();
+    expect(component.targetPassword).toBe('.tie5Roanl');
+    expect(component.currentUsername).toBe('teste_user');
+  });
+
+  it('deve rejeitar tentativa com senha divergente da cadastrada', () => {
+    component.onSampleSubmitted('senha_errada');
+    expect(component.validationError).toContain('Texto incorreto');
+    expect(component.currentRepetition).toBe(0);
+  });
+
+  it('deve registrar repetição válida e avançar progresso', () => {
+    spyOn(captureService, 'computeSample').and.returnValue({
+      repetition: 1,
+      textEntered: '.tie5Roanl',
+      features: { 'H.period': 0.12 },
+      rawTimings: [],
+      totalDurationMs: 1200
+    });
+
+    component.onSampleSubmitted('.tie5Roanl');
+
+    expect(component.currentRepetition).toBe(1);
+    expect(component.validationError).toBeNull();
+  });
+
+  it('deve submeter lote de 5 amostras e redirecionar para /login ao atingir a 5ª repetição', fakeAsync(() => {
+    spyOn(captureService, 'computeSample').and.callFake((rep: number) => ({
+      repetition: rep,
+      textEntered: '.tie5Roanl',
+      features: { 'H.period': 0.12 },
+      rawTimings: [],
+      totalDurationMs: 1200
+    }));
+
+    for (let i = 1; i <= 5; i++) {
+      component.onSampleSubmitted('.tie5Roanl');
+    }
+
+    expect(biometricApiSpy.submitEnrollment).toHaveBeenCalled();
+    expect(component.submissionSuccess).toBeTrue();
+
+    tick(1500);
+    expect(routerSpy.navigate).toHaveBeenCalledWith(['/login']);
+  }));
+});

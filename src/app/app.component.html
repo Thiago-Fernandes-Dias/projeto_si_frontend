@@ -1,0 +1,39 @@
+<div class="app-layout">
+  <header class="app-navbar">
+    <div class="navbar-brand">
+      <span class="brand-icon">⌨️</span>
+      <div class="brand-text">
+        <h1>Keystroke Dynamics Biometrics</h1>
+        <span class="brand-sub">UFABC — Sistemas Inteligentes (ESZI014-17)</span>
+      </div>
+    </div>
+
+    <nav class="navbar-nav">
+      <a routerLink="/register" routerLinkActive="active" class="nav-link">
+        1. Cadastro
+      </a>
+      <a routerLink="/enrollment" routerLinkActive="active" class="nav-link">
+        2. Coleta (5x)
+      </a>
+      <a routerLink="/login" routerLinkActive="active" class="nav-link">
+        3. Login
+      </a>
+      <a routerLink="/dashboard" routerLinkActive="active" class="nav-link">
+        Dashboard
+      </a>
+    </nav>
+  </header>
+
+  <main class="app-content">
+    <router-outlet></router-outlet>
+  </main>
+
+  <footer class="app-footer">
+    <p>
+      Projeto de Dinâmica de Digitação com Modelos por Usuário (Random Forest, k-NN, MLP e HPO).
+    </p>
+    <p class="meta-tag">
+      Precisão temporal sub-milissegundo via <code>performance.now()</code>.
+    </p>
+  </footer>
+</div>
