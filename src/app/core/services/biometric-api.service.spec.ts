@@ -20,24 +20,6 @@ describe('BiometricApiService', () => {
     httpTestingController.verify();
   });
 
-  it('deve listar algoritmos disponíveis via requisição HTTP', () => {
-    service.getAvailableAlgorithms().subscribe((algorithms) => {
-      expect(algorithms.length).toBeGreaterThan(0);
-      expect(algorithms.some((a) => a.id === 'RANDOM_FOREST_HPO')).toBeTrue();
-    });
-
-    const req = httpTestingController.expectOne('/api/algorithms');
-    expect(req.request.method).toBe('GET');
-    req.flush([
-      {
-        id: 'RANDOM_FOREST_HPO',
-        name: 'Random Forest (HPO)',
-        description: 'Mock',
-        hasHPO: true
-      }
-    ]);
-  });
-
   it('deve submeter o lote de enrollment para a API', () => {
     const payload: EnrollmentPayload = {
       username: 'usuario_teste',

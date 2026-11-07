@@ -51,10 +51,3 @@ export interface AuthenticationResponse {
   userAverageHoldTimeMs?: number;
   attemptAverageHoldTimeMs?: number;
 }
-
-export interface AlgorithmOption {
-  id: MachineLearningAlgorithm;
-  name: string;
-  description: string;
-  hasHPO: boolean;
-}
