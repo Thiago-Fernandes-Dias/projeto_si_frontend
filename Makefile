@@ -3,7 +3,7 @@ IMAGE_NAME := keystroke-auth-frontend
 CONTAINER_PORT := 80
 HOST_PORT := 4200
 
-.PHONY: help install dev build test lint docker-build docker-run docker-dev clean
+.PHONY: help install dev build test lint docker-build docker-run docker-dev mock-install mock-dev mock-test clean
 
 help:
 	@echo "Comandos disponíveis:"
@@ -11,6 +11,9 @@ help:
 	@echo "  make dev           - Executa o servidor de desenvolvimento Angular (localhost:4200)"
 	@echo "  make build         - Executa o build de produção do Angular"
 	@echo "  make test          - Executa a suíte de testes unitários automatizados"
+	@echo "  make mock-install  - Instala dependências Python da Mock API (Flask)"
+	@echo "  make mock-dev      - Inicia a Mock API em Python/Flask na porta 5000"
+	@echo "  make mock-test     - Executa os testes automatizados da Mock API"
 	@echo "  make docker-build  - Constrói a imagem Docker de produção"
 	@echo "  make docker-run    - Executa o container Docker em http://localhost:$(HOST_PORT)"
 	@echo "  make docker-dev    - Executa o ambiente de desenvolvimento em container Docker"
@@ -27,6 +30,15 @@ build:
 
 test:
 	NG_CLI_ANALYTICS=false npm test -- --watch=false --browsers=ChromeHeadless
+
+mock-install:
+	pip3 install -r mock_api/requirements.txt
+
+mock-dev:
+	python3 mock_api/app.py
+
+mock-test:
+	python3 mock_api/test_app.py
 
 docker-build:
 	docker build -t $(IMAGE_NAME) .
