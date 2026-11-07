@@ -1,13 +1,12 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterModule } from '@angular/router';
+import { RouterModule } from '@angular/router';
 import { UserSessionService } from '../../core/services/user-session.service';
 import { KeystrokeCaptureService } from '../../core/services/keystroke-capture.service';
 import { BiometricApiService } from '../../core/services/biometric-api.service';
 import { KeystrokeInputComponent } from '../../shared/components/keystroke-input/keystroke-input.component';
 import {
-  AlgorithmOption,
   AuthenticationPayload,
   AuthenticationResponse,
   MachineLearningAlgorithm
@@ -23,7 +22,7 @@ import {
         <div class="card-header">
           <h2>Login com Biometria de Digitação</h2>
           <p class="subtitle">
-            Autenticação combinada: credencial textual + dinâmica de digitação (*Keystroke Dynamics*).
+            Autenticação combinada: validação de credencial textual e dinâmica de digitação.
           </p>
         </div>
 
@@ -39,25 +38,6 @@ import {
               class="form-control"
               required
             />
-          </div>
-
-          <div class="form-group">
-            <label for="algorithmSelect">Modelo de Classificação / Estratégia</label>
-            <select
-              id="algorithmSelect"
-              name="algorithmSelect"
-              [(ngModel)]="selectedAlgorithm"
-              class="form-control"
-            >
-              @for (algo of availableAlgorithms; track algo.id) {
-                <option [value]="algo.id">
-                  {{ algo.name }}
-                </option>
-              }
-            </select>
-            <span class="field-hint">
-              Alterne entre Baseline e HPO para avaliar o impacto da sintonia de hiperparâmetros.
-            </span>
           </div>
 
           <div class="form-group">
@@ -119,7 +99,7 @@ import {
                   <span class="metric-value">{{ result.inferenceTimeMs }} ms</span>
                 </div>
                 <div class="metric-item">
-                  <span class="metric-label">Hold Médio da Tentativa</span>
+                  <span class="metric-label">Hold Médio</span>
                   <span class="metric-value">{{ result.attemptAverageHoldTimeMs }} ms</span>
                 </div>
               </div>
@@ -128,16 +108,14 @@ import {
         }
 
         <div class="card-footer-nav">
-          <a routerLink="/register">Cadastrar Novo Usuário / Trocar Senha</a>
-          <span class="divider">•</span>
-          <a routerLink="/dashboard">Ver Métricas e Comparativo no Dashboard</a>
+          <a routerLink="/register">← Voltar para o Cadastro / Trocar Senha</a>
         </div>
       </div>
     </div>
   `,
   styles: [`
     .login-container {
-      max-width: 620px;
+      max-width: 540px;
       margin: 2rem auto;
     }
 
@@ -197,11 +175,6 @@ import {
         outline: none;
         box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
       }
-    }
-
-    .field-hint {
-      font-size: 0.75rem;
-      color: #64748b;
     }
 
     .primary-button {
@@ -317,10 +290,7 @@ import {
       padding: 1rem 2rem;
       background: #f8fafc;
       border-top: 1px solid #e2e8f0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 0.75rem;
+      text-align: center;
       font-size: 0.85rem;
 
       a {
@@ -332,10 +302,6 @@ import {
           text-decoration: underline;
         }
       }
-
-      .divider {
-        color: #94a3b8;
-      }
     }
   `]
 })
@@ -344,21 +310,15 @@ export class LoginComponent implements OnInit {
   private readonly captureService = inject(KeystrokeCaptureService);
   private readonly biometricApi = inject(BiometricApiService);
 
-  username = '';
-  selectedAlgorithm: MachineLearningAlgorithm = 'RANDOM_FOREST_HPO';
-  availableAlgorithms: AlgorithmOption[] = [];
+  private readonly defaultAlgorithm: MachineLearningAlgorithm = 'RANDOM_FOREST_HPO';
 
+  username = '';
   isAuthenticating = false;
   authResult: AuthenticationResponse | null = null;
 
   ngOnInit(): void {
     const user = this.userSession.currentUser();
     this.username = user?.username || 's002_cmu';
-    this.selectedAlgorithm = this.userSession.selectedAlgorithm();
-
-    this.biometricApi.getAvailableAlgorithms().subscribe((algorithms) => {
-      this.availableAlgorithms = algorithms;
-    });
   }
 
   onPasswordSubmitted(enteredText: string): void {
@@ -374,13 +334,12 @@ export class LoginComponent implements OnInit {
     this.authResult = null;
     const targetPassword = this.userSession.currentUser()?.targetPassword || '.tie5Roanl';
 
-    // Validação textual prévia: se a senha não coincidir textualmente
     if (passwordAttempt !== targetPassword) {
       this.authResult = {
         decision: 'INVALID_CREDENTIALS',
         confidenceScore: 0,
         thresholdScore: 0.75,
-        algorithm: this.selectedAlgorithm,
+        algorithm: this.defaultAlgorithm,
         inferenceTimeMs: 0,
         message: 'A senha textual digitada está incorreta.'
       };
@@ -395,7 +354,7 @@ export class LoginComponent implements OnInit {
         username: this.username,
         passwordAttempt,
         sample,
-        selectedAlgorithm: this.selectedAlgorithm
+        selectedAlgorithm: this.defaultAlgorithm
       };
 
       this.biometricApi.authenticate(payload).subscribe({
@@ -412,7 +371,7 @@ export class LoginComponent implements OnInit {
         decision: 'INVALID_CREDENTIALS',
         confidenceScore: 0,
         thresholdScore: 0.75,
-        algorithm: this.selectedAlgorithm,
+        algorithm: this.defaultAlgorithm,
         inferenceTimeMs: 0,
         message: (error as Error).message || 'Erro de captura biométrica.'
       };

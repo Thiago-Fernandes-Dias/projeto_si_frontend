@@ -22,13 +22,13 @@ Este documento detalha os requisitos funcionais, não-funcionais, arquiteturais 
 [Envio do Lote de 5 Amostras ao Backend] ──► [Treinamento do Modelo do Usuário]
        │
        ▼
-[Tela de Login Biométrico / Dashboard]
+[Tela de Login Biométrico]
 ```
 
 1. **Cadastro:** O usuário preenche seus dados (nome/identificador e define sua senha).
-2. **Coleta de Amostras (Enrollment):** O usuário é automaticamente redirecionado para a tela de coleta, onde deve digitar a senha cadastrada exatamente **5 vezes**.
+2. **Coleta de Amostras (Enrollment):** O usuário é automaticamente direcionado para a tela de coleta, onde deve digitar a senha cadastrada exatamente **5 vezes**.
 3. **Envio e Calibração:** Ao atingir as 5 repetições válidas, o frontend computa os vetores temporais e os transmite ao backend para treinamento do classificador individual.
-4. **Autenticação:** O usuário realiza login digitando sua credencial; o frontend extrai o vetor biométrico da tentativa e consulta o modelo no backend para autorizar ou bloquear a sessão.
+4. **Autenticação:** O usuário realiza login digitando sua credencial; o frontend extrai o vetor biométrico da tentativa e consulta o modelo no backend para autorizar ou bloquear a sessão. O fluxo é linear e guiado, sem menu de navegação aberto.
 
 ---
 
@@ -54,16 +54,12 @@ Este documento detalha os requisitos funcionais, não-funcionais, arquiteturais 
   - Captura opcional/padronizada da tecla de submissão (`Return`/Enter) como fechamento da sequência.
 
 ### 3.4. Login e Autenticação Biométrica
-- **RF10 - Tela de Autenticação:** Campo de identificação e campo de senha monitorado por serviço de dinâmica de digitação.
-- **RF11 - Consulta de Inferência:** Envio assíncrono do vetor de características da digitação para classificação no backend.
+- **RF10 - Tela de Autenticação:** Campo de identificação e campo de senha monitorado por serviço de dinâmica de digitação, sem necessidade de configuração ou escolha manual de modelo por parte do usuário final.
+- **RF11 - Consulta de Inferência Automática:** Envio assíncrono do vetor de características da digitação para classificação direta no backend utilizando o modelo calibrado do usuário.
 - **RF12 - Decisão de Acesso:** Apresentação clara do resultado retornado pela inteligência artificial:
   - **Acesso Permitido:** Identidade biométrica compatível (Usuário Genuíno).
   - **Acesso Bloqueado:** Senha textual correta, mas padrão de ritmo classificado como Impostor.
   - **Credenciais Inválidas:** Senha textual incorreta.
-
-### 3.5. Painel de Demonstração e Avaliação (*Dashboard*)
-- **RF13 - Seleção de Algoritmo:** Permitir alternar entre os classificadores disponíveis: Random Forest, k-NN e MLP (modos *Baseline* e *HPO por Usuário*).
-- **RF14 - Visualização Gráfica Comparativa:** Exibir gráficos relacionando as métricas temporais da tentativa em avaliação com a média das 5 amostras cadastradas pelo usuário legítimo.
 
 ---
 
@@ -76,6 +72,7 @@ Este documento detalha os requisitos funcionais, não-funcionais, arquiteturais 
 - **RNF05 - Arquitetura Angular Moderna:** Uso obrigatório de Standalone Components, Angular Signals para estado reativo, tipagem estrita de modelos TypeScript e separação de responsabilidades em Services (conforme definido em [AGENTS.md](file:///Users/thiago/Repositories/projeto_si_frontend/AGENTS.md)).
 - **RNF06 - Containerização com Docker:** Disponibilização de `Dockerfile` para execução da aplicação em container isolado, suportando execução de desenvolvimento e build de produção com servidor Nginx.
 - **RNF07 - Automação via Makefile:** Criação de `Makefile` com comandos padronizados para instalação de dependências (`make install`), build da aplicação (`make build`), execução de testes (`make test`), inicialização do servidor de desenvolvimento local (`make dev`), construção da imagem Docker (`make docker-build`) e execução do container (`make docker-run`).
+- **RNF08 - Mock API em Python/Flask:** Disponibilização de servidor Mock em Python (Flask + Flask-CORS) em pasta dedicada (`mock_api/`) para responder às requisições do frontend com dados fictícios e simulação biométrica (`/api/register`, `/api/enrollment`, `/api/authenticate`), além de configuração de proxy no Angular CLI (`proxy.conf.json`) para integração transparente em desenvolvimento.
 
 ---
 
@@ -208,13 +205,15 @@ src/app/
 │   │   └── register.component.ts
 │   ├── enrollment/                   # Tela 2: Coleta obrigatória de 5 amostras
 │   │   └── enrollment.component.ts
-│   ├── login/                        # Tela 3: Login com autenticação biométrica
-│   │   └── login.component.ts
-│   └── dashboard/                    # Tela 4: Comparativo de algoritmos e métricas
-│       └── dashboard.component.ts
+│   └── login/                        # Tela 3: Login com autenticação biométrica
+│       └── login.component.ts
 └── shared/
     └── components/
         └── keystroke-input/          # Input reutilizável com escuta de performance.now()
+mock_api/
+├── app.py                            # Servidor Mock Flask com endpoints /api/*
+├── requirements.txt                  # Dependências Python (flask, flask-cors)
+└── test_app.py                       # Testes automatizados da Mock API
 ```
 
 ---
@@ -228,3 +227,5 @@ Este documento segue as diretrizes estabelecidas no [AGENTS.md](file:///Users/th
 | `1.0.0` | 2026-11-07 | Thiago Dias / Antigravity | Versão inicial dos requisitos de Keystroke Dynamics e arquitetura Angular. |
 | `1.1.0` | 2026-11-07 | Thiago Dias / Antigravity | Integração do fluxo de cadastro com coleta de 5 amostras obrigatórias, mapeamento do benchmark CMU (`DSL-StrongPasswordData.csv`), definição do payload JSON e governança via `AGENTS.md`. |
 | `1.2.0` | 2026-11-07 | Thiago Dias / Antigravity | Inclusão dos requisitos de infraestrutura: Dockerfile (containerização) e Makefile para automação de build, testes e execução em modo de desenvolvimento. |
+| `1.3.0` | 2026-11-07 | Thiago Dias / Antigravity | Simplificação de interface: remoção da Dashboard, remoção dos links da barra de navegação global (fluxo linear guiado Cadastro -> Coleta -> Login) e remoção da escolha manual de algoritmos na tela de login. |
+| `1.4.0` | 2026-11-07 | Thiago Dias / Antigravity | Criação da Mock API em Python/Flask na pasta dedicada `mock_api/` e configuração de proxy no frontend Angular para resolução de chamadas `/api/*`. |
