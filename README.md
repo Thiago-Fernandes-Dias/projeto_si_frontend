@@ -1,6 +1,6 @@
 # Frontend de Autenticação por Dinâmica de Digitação (*Keystroke Dynamics*)
 
-Aplicação web desenvolvida em **Angular (v18 Standalone + Signals)** para cadastro de usuários, coleta guiada de amostras de digitação (5 repetições obrigatórias), autenticação biométrica comportamental e visualização de métricas de modelos de Aprendizado de Máquina (Random Forest, k-NN e MLP, com e sem HPO).
+Aplicação web desenvolvida em **Angular (v18 Standalone + Signals)** para cadastro de usuários, coleta guiada de amostras de digitação (5 repetições obrigatórias) e autenticação biométrica comportamental via dinâmica de digitação. O fluxo de usuário é guiado e focado (Cadastro ➔ Coleta de 5 Amostras ➔ Login).
 
 **Contexto Acadêmico:** UFABC — Sistemas Inteligentes (ESZI014-17)
 
@@ -110,7 +110,7 @@ O projeto inclui um [Makefile](Makefile) que padroniza os comandos mais frequent
 | `make help` | Exibe o menu com todos os comandos disponíveis |
 | `make install` | Instala dependências do projeto via npm |
 | `make dev` | Inicia o servidor Angular local em `http://localhost:4200` |
-| `make test` | Executa a suíte de 37 testes automatizados em modo headless |
+| `make test` | Executa a suíte de 34 testes automatizados em modo headless |
 | `make build` | Compila o bundle otimizado de produção em `dist/` |
 | `make docker-build` | Cria a imagem Docker de produção (`keystroke-auth-frontend`) |
 | `make docker-run` | Sobe o container Docker servindo a aplicação na porta `4200` |
@@ -124,5 +124,5 @@ O projeto inclui um [Makefile](Makefile) que padroniza os comandos mais frequent
 - [requisitos.md](requisitos.md): Especificação oficial de requisitos, colunas do benchmark CMU (`DSL-StrongPasswordData.csv`), formato dos payloads JSON e regras biométricas ($H$, $DD$, $UD$).
 - [AGENTS.md](AGENTS.md): Diretrizes de engenharia de software e governança para agentes de IA atuando no repositório.
 - `src/app/core/`: Serviços de captura temporal (`KeystrokeCaptureService`), API REST (`BiometricApiService`) e modelos de dados.
-- `src/app/features/`: Componentes das telas de cadastro (`register`), coleta de 5 amostras (`enrollment`), login biométrico (`login`) e métricas (`dashboard`).
+- `src/app/features/`: Componentes das telas de cadastro (`register`), coleta de 5 amostras (`enrollment`) e login biométrico (`login`).
 - `src/app/shared/`: Componente de campo de entrada protegido (`KeystrokeInputComponent`).

@@ -15,20 +15,7 @@ describe('LoginComponent', () => {
   let biometricApiSpy: jasmine.SpyObj<BiometricApiService>;
 
   beforeEach(async () => {
-    biometricApiSpy = jasmine.createSpyObj('BiometricApiService', [
-      'getAvailableAlgorithms',
-      'authenticate'
-    ]);
-    biometricApiSpy.getAvailableAlgorithms.and.returnValue(
-      of([
-        {
-          id: 'RANDOM_FOREST_HPO',
-          name: 'Random Forest (HPO)',
-          description: '',
-          hasHPO: true
-        }
-      ])
-    );
+    biometricApiSpy = jasmine.createSpyObj('BiometricApiService', ['authenticate']);
 
     await TestBed.configureTestingModule({
       imports: [LoginComponent],

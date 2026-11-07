@@ -25,12 +25,6 @@ export const routes: Routes = [
     title: 'Login Biométrico - Keystroke Biometrics'
   },
   {
-    path: 'dashboard',
-    loadComponent: () =>
-      import('./features/dashboard/dashboard.component').then((m) => m.DashboardComponent),
-    title: 'Dashboard e Métricas - Keystroke Biometrics'
-  },
-  {
     path: '**',
     redirectTo: 'register'
   }
