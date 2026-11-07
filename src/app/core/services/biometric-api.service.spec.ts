@@ -43,7 +43,6 @@ describe('BiometricApiService', () => {
     const authPayload: AuthenticationPayload = {
       username: 'usuario_teste',
       passwordAttempt: 'senha123',
-      selectedAlgorithm: 'RANDOM_FOREST_HPO',
       sample: {
         repetition: 1,
         textEntered: 'senha123',
@@ -66,7 +65,6 @@ describe('BiometricApiService', () => {
       decision: 'GENUINE',
       confidenceScore: 0.95,
       thresholdScore: 0.75,
-      algorithm: 'RANDOM_FOREST_HPO',
       inferenceTimeMs: 12,
       message: 'Acesso Permitido'
     });
@@ -76,7 +74,6 @@ describe('BiometricApiService', () => {
     const authPayload: AuthenticationPayload = {
       username: 'usuario_teste',
       passwordAttempt: 'senha123',
-      selectedAlgorithm: 'KNN_HPO',
       sample: {
         repetition: 1,
         textEntered: 'senha123',

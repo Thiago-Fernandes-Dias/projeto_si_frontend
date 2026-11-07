@@ -26,26 +26,17 @@ export interface EnrollmentPayload {
 
 export type BiometricDecision = 'GENUINE' | 'IMPOSTOR' | 'INVALID_CREDENTIALS';
 
-export type MachineLearningAlgorithm =
-  | 'RANDOM_FOREST_BASELINE'
-  | 'RANDOM_FOREST_HPO'
-  | 'KNN_BASELINE'
-  | 'KNN_HPO'
-  | 'MLP_BASELINE'
-  | 'MLP_HPO';
 
 export interface AuthenticationPayload {
   username: string;
   passwordAttempt: string;
   sample: KeystrokeSample;
-  selectedAlgorithm: MachineLearningAlgorithm;
 }
 
 export interface AuthenticationResponse {
   decision: BiometricDecision;
   confidenceScore: number;
   thresholdScore: number;
-  algorithm: MachineLearningAlgorithm;
   inferenceTimeMs: number;
   message: string;
   userAverageHoldTimeMs?: number;

@@ -39,7 +39,7 @@ Este documento detalha os requisitos funcionais, não-funcionais, arquiteturais 
 - **RF02 - Redirecionamento Automático:** Concluída a validação textual do cadastro com sucesso, o sistema deve direcionar o usuário imediatamente para a tela de coleta de amostras de digitação.
 
 ### 3.2. Coleta de Amostras de Digitação (*Enrollment*)
-- **RF03 - Coleta de 5 Amostras:** A tela de coleta deve exigir a digitação da senha escolhida por exatamente **5 vezes** válidas.
+- **RF03 - Coleta de Exatamente 5 Amostras:** A tela de coleta deve exigir a digitação da senha escolhida por exatamente **5 vezes** válidas. Ao concluir a 5ª repetição, a coleta é encerrada imediatamente, ocultando o campo de entrada e impedindo qualquer solicitação de repetições adicionais (como uma 6ª amostra).
 - **RF04 - Feedback e Progresso Visual:** O sistema deve informar o progresso em tempo real (ex.: *"Amostra 1 de 5"*, *"Amostra 2 de 5"*), limpando o campo de entrada automaticamente a cada repetição concluída com sucesso.
 - **RF05 - Validação Textual e Descarte de Inconsistências:** A amostra só é contabilizada se o texto digitado corresponder exatamente à senha escolhida no cadastro. Se houver discrepância de caracteres, a amostra é descartada com aviso instrutivo ao usuário.
 - **RF06 - Invalidação por Correção ou Colagem:** Caso o usuário pressione teclas de correção (*Backspace*, *Delete*) ou realize colagem (*Paste*), o campo é limpo e a repetição atual deve ser reiniciada, assegurando a pureza do fluxo temporal.
@@ -230,3 +230,6 @@ Este documento segue as diretrizes estabelecidas no [AGENTS.md](file:///Users/th
 | `1.3.0` | 2026-11-07 | Thiago Dias / Antigravity | Simplificação de interface: remoção da Dashboard, remoção dos links da barra de navegação global (fluxo linear guiado Cadastro -> Coleta -> Login) e remoção da escolha manual de algoritmos na tela de login. |
 | `1.4.0` | 2026-11-07 | Thiago Dias / Antigravity | Criação da Mock API em Python/Flask na pasta dedicada `mock_api/` e configuração de proxy no frontend Angular para resolução de chamadas `/api/*`. |
 | `1.5.0` | 2026-11-07 | Thiago Dias / Antigravity | Remoção de qualquer menção ou endpoint de listagem de algoritmos na Mock API e no serviço do frontend. |
+| `1.6.0` | 2026-11-07 | Thiago Dias / Antigravity | Correção do encerramento da coleta: remoção da solicitação da 6ª amostra e bloqueio imediato da entrada após a 5ª repetição válida. |
+| `1.7.0` | 2026-11-07 | Thiago Dias / Antigravity | Remoção de menções explícitas à API técnica `performance.now()` nos textos visíveis ao usuário final na interface (UI). |
+| `1.8.0` | 2026-11-07 | Thiago Dias / Antigravity | Remoção completa dos tipos e propriedades de algoritmos (`MachineLearningAlgorithm`, `selectedAlgorithm`, `algorithm`) dos modelos, serviços e componentes do frontend. |

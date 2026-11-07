@@ -8,8 +8,7 @@ import { BiometricApiService } from '../../core/services/biometric-api.service';
 import { KeystrokeInputComponent } from '../../shared/components/keystroke-input/keystroke-input.component';
 import {
   AuthenticationPayload,
-  AuthenticationResponse,
-  MachineLearningAlgorithm
+  AuthenticationResponse
 } from '../../core/models/keystroke.model';
 
 @Component({
@@ -310,8 +309,6 @@ export class LoginComponent implements OnInit {
   private readonly captureService = inject(KeystrokeCaptureService);
   private readonly biometricApi = inject(BiometricApiService);
 
-  private readonly defaultAlgorithm: MachineLearningAlgorithm = 'RANDOM_FOREST_HPO';
-
   username = '';
   isAuthenticating = false;
   authResult: AuthenticationResponse | null = null;
@@ -339,7 +336,6 @@ export class LoginComponent implements OnInit {
         decision: 'INVALID_CREDENTIALS',
         confidenceScore: 0,
         thresholdScore: 0.75,
-        algorithm: this.defaultAlgorithm,
         inferenceTimeMs: 0,
         message: 'A senha textual digitada está incorreta.'
       };
@@ -353,8 +349,7 @@ export class LoginComponent implements OnInit {
       const payload: AuthenticationPayload = {
         username: this.username,
         passwordAttempt,
-        sample,
-        selectedAlgorithm: this.defaultAlgorithm
+        sample
       };
 
       this.biometricApi.authenticate(payload).subscribe({
@@ -371,7 +366,6 @@ export class LoginComponent implements OnInit {
         decision: 'INVALID_CREDENTIALS',
         confidenceScore: 0,
         thresholdScore: 0.75,
-        algorithm: this.defaultAlgorithm,
         inferenceTimeMs: 0,
         message: (error as Error).message || 'Erro de captura biométrica.'
       };
