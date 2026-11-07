@@ -73,6 +73,7 @@ Este documento detalha os requisitos funcionais, não-funcionais, arquiteturais 
 - **RNF06 - Containerização com Docker:** Disponibilização de `Dockerfile` para execução da aplicação em container isolado, suportando execução de desenvolvimento e build de produção com servidor Nginx.
 - **RNF07 - Automação via Makefile:** Criação de `Makefile` com comandos padronizados para instalação de dependências (`make install`), build da aplicação (`make build`), execução de testes (`make test`), inicialização do servidor de desenvolvimento local (`make dev`), construção da imagem Docker (`make docker-build`) e execução do container (`make docker-run`).
 - **RNF08 - Mock API em Python/Flask:** Disponibilização de servidor Mock em Python (Flask + Flask-CORS) em pasta dedicada (`mock_api/`) para responder às requisições do frontend com dados fictícios e simulação biométrica (`/api/register`, `/api/enrollment`, `/api/authenticate`), além de configuração de proxy no Angular CLI (`proxy.conf.json`) para integração transparente em desenvolvimento.
+- **RNF09 - Orquestração Multi-container com Docker Compose:** Disponibilização de arquivo `docker-compose.yml` e `mock_api/Dockerfile` para orquestração conjunta da aplicação frontend (Angular servido via Nginx) e da Mock API (Python/Flask) em containers isolados conectados por rede bridge dedicada (`keystroke-network`). A configuração de proxy reverso do Nginx deve rotear chamadas `/api/` diretamente para o hostname do serviço da mock api (`http://mock-api:5000`), com dependência condicional de healthcheck.
 
 ---
 
@@ -211,9 +212,11 @@ src/app/
     └── components/
         └── keystroke-input/          # Input reutilizável com escuta de performance.now()
 mock_api/
+├── Dockerfile                        # Containerização da Mock API Python
 ├── app.py                            # Servidor Mock Flask com endpoints /api/*
 ├── requirements.txt                  # Dependências Python (flask, flask-cors)
 └── test_app.py                       # Testes automatizados da Mock API
+docker-compose.yml                    # Orquestração multi-container do frontend e mock-api
 ```
 
 ---
@@ -230,3 +233,4 @@ Este documento segue as diretrizes estabelecidas no [AGENTS.md](file:///Users/th
 | `1.3.0` | 2026-11-07 | Thiago Dias / Antigravity | Simplificação de interface: remoção da Dashboard, remoção dos links da barra de navegação global (fluxo linear guiado Cadastro -> Coleta -> Login) e remoção da escolha manual de algoritmos na tela de login. |
 | `1.4.0` | 2026-11-07 | Thiago Dias / Antigravity | Criação da Mock API em Python/Flask na pasta dedicada `mock_api/` e configuração de proxy no frontend Angular para resolução de chamadas `/api/*`. |
 | `1.5.0` | 2026-11-07 | Thiago Dias / Antigravity | Remoção de qualquer menção ou endpoint de listagem de algoritmos na Mock API e no serviço do frontend. |
+| `1.6.0` | 2026-11-07 | Thiago Dias / Antigravity | Orquestração multi-container com Docker Compose (`docker-compose.yml`), containerização da Mock API com `mock_api/Dockerfile` e integração Nginx apontando para `http://mock-api:5000`. |
