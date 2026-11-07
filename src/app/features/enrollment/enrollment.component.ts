@@ -45,7 +45,7 @@ import { EnrollmentPayload } from '../../core/models/keystroke.model';
             <div
               class="step-circle"
               [class.completed]="step <= currentRepetition"
-              [class.active]="step === currentRepetition + 1"
+              [class.active]="step === currentRepetition + 1 && !isEnrollmentComplete"
             >
               {{ step <= currentRepetition ? '✓' : step }}
             </div>
@@ -65,17 +65,26 @@ import { EnrollmentPayload } from '../../core/models/keystroke.model';
         </div>
       }
 
-      <div class="input-section">
-        <label>
-          Digite a repetição <strong>#{{ currentRepetition + 1 }}</strong> e pressione <strong>Enter</strong>:
-        </label>
-        <app-keystroke-input
-          #keystrokeInput
-          [disabled]="isSubmitting || submissionSuccess"
-          placeholder="Digite a senha e tecle Enter..."
-          (textSubmitted)="onSampleSubmitted($event)"
-        ></app-keystroke-input>
-      </div>
+      @if (!isEnrollmentComplete) {
+        <div class="input-section">
+          <label>
+            Digite a repetição <strong>#{{ currentRepetition + 1 }}</strong> de <strong>{{ totalRequiredRepetitions }}</strong> e pressione <strong>Enter</strong>:
+          </label>
+          <app-keystroke-input
+            #keystrokeInput
+            [disabled]="isSubmitting"
+            placeholder="Digite a senha e tecle Enter..."
+            (textSubmitted)="onSampleSubmitted($event)"
+          ></app-keystroke-input>
+        </div>
+      } @else {
+        <div class="processing-section">
+          <div class="spinner"></div>
+          <p>
+            {{ submissionSuccess ? 'Todas as 5 amostras coletadas. Redirecionando...' : 'Processando e enviando lote de 5 amostras biométricas...' }}
+          </p>
+        </div>
+      }
 
       <div class="instructions-box">
         <h4>Diretrizes de Qualidade Biométrica:</h4>
@@ -272,6 +281,32 @@ import { EnrollmentPayload } from '../../core/models/keystroke.model';
         gap: 0.25rem;
       }
     }
+    .processing-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      padding: 1.5rem;
+      background: #f8fafc;
+      border: 1px dashed #3b82f6;
+      border-radius: 0.5rem;
+      text-align: center;
+      color: #1e40af;
+      font-weight: 500;
+
+      .spinner {
+        width: 32px;
+        height: 32px;
+        border: 4px solid #bfdbfe;
+        border-top-color: #2563eb;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
   `]
 })
 export class EnrollmentComponent {
@@ -301,7 +336,15 @@ export class EnrollmentComponent {
     return this.userSession.currentRepetitionCount();
   }
 
+  get isEnrollmentComplete(): boolean {
+    return this.userSession.isEnrollmentComplete() || this.currentRepetition >= this.totalRequiredRepetitions;
+  }
+
   onSampleSubmitted(enteredText: string): void {
+    if (this.isEnrollmentComplete || this.isSubmitting) {
+      return;
+    }
+
     this.validationError = null;
 
     if (enteredText !== this.targetPassword) {

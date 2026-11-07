@@ -84,4 +84,27 @@ describe('EnrollmentComponent', () => {
     tick(1500);
     expect(routerSpy.navigate).toHaveBeenCalledWith(['/login']);
   }));
+
+  it('não deve solicitar ou permitir a coleta de uma 6ª amostra', fakeAsync(() => {
+    spyOn(captureService, 'computeSample').and.callFake((rep: number) => ({
+      repetition: rep,
+      textEntered: '.tie5Roanl',
+      features: { 'H.period': 0.12 },
+      rawTimings: [],
+      totalDurationMs: 1200
+    }));
+
+    for (let i = 1; i <= 5; i++) {
+      component.onSampleSubmitted('.tie5Roanl');
+    }
+
+    expect(component.isEnrollmentComplete).toBeTrue();
+    expect(component.currentRepetition).toBe(5);
+
+    // Tentativa de submeter uma 6ª amostra
+    component.onSampleSubmitted('.tie5Roanl');
+    expect(component.currentRepetition).toBe(5);
+
+    tick(1500);
+  }));
 });
