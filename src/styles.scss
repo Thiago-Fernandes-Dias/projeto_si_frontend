@@ -143,7 +143,7 @@ code {
     }
   }
 
-  i {
+  > i {
     position: absolute;
     right: 20px;
     top: 50%;
@@ -151,6 +151,36 @@ code {
     font-size: 20px;
     color: #555;
     pointer-events: none;
+  }
+
+  .visibility-toggle-button {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    padding: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #555;
+    font-size: 20px;
+    cursor: pointer;
+    opacity: 0.8;
+    transition: opacity 0.2s;
+
+    &:hover {
+      opacity: 1;
+    }
+
+    i {
+      position: static;
+      transform: none;
+      font-size: inherit;
+      color: inherit;
+      pointer-events: auto;
+    }
   }
 }
 

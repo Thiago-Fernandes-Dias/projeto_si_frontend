@@ -35,26 +35,54 @@ import { BiometricApiService } from '../../core/services/biometric-api.service';
             <input
               id="password"
               name="password"
-              type="text"
+              [type]="showPassword ? 'text' : 'password'"
               [(ngModel)]="password"
               placeholder="Senha escolhida"
               aria-label="Senha escolhida"
+              autocomplete="new-password"
               required
             />
-            <i class="bx bxs-lock-alt" aria-hidden="true"></i>
+            <button
+              type="button"
+              class="visibility-toggle-button"
+              (click)="togglePasswordVisibility()"
+              [title]="showPassword ? 'Ocultar senha' : 'Ver senha'"
+              [attr.aria-label]="showPassword ? 'Ocultar senha' : 'Ver senha'"
+            >
+              <i
+                class="bx"
+                [class.bx-show]="showPassword"
+                [class.bx-hide]="!showPassword"
+                aria-hidden="true"
+              ></i>
+            </button>
           </div>
 
           <div class="input-box">
             <input
               id="confirmPassword"
               name="confirmPassword"
-              type="text"
+              [type]="showConfirmPassword ? 'text' : 'password'"
               [(ngModel)]="confirmPassword"
               placeholder="Confirmar senha"
               aria-label="Confirmar senha"
+              autocomplete="new-password"
               required
             />
-            <i class="bx bxs-lock" aria-hidden="true"></i>
+            <button
+              type="button"
+              class="visibility-toggle-button"
+              (click)="toggleConfirmPasswordVisibility()"
+              [title]="showConfirmPassword ? 'Ocultar senha' : 'Ver senha'"
+              [attr.aria-label]="showConfirmPassword ? 'Ocultar senha' : 'Ver senha'"
+            >
+              <i
+                class="bx"
+                [class.bx-show]="showConfirmPassword"
+                [class.bx-hide]="!showConfirmPassword"
+                aria-hidden="true"
+              ></i>
+            </button>
           </div>
 
           @if (errorMessage) {
@@ -97,6 +125,16 @@ export class RegisterComponent {
   confirmPassword = '';
   errorMessage = '';
   isSubmitting = false;
+  showPassword = false;
+  showConfirmPassword = false;
+
+  togglePasswordVisibility(): void {
+    this.showPassword = !this.showPassword;
+  }
+
+  toggleConfirmPasswordVisibility(): void {
+    this.showConfirmPassword = !this.showConfirmPassword;
+  }
 
   onSubmit(): void {
     this.errorMessage = '';

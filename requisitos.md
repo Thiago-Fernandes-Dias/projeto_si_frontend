@@ -38,7 +38,7 @@ Este documento detalha os requisitos funcionais, não-funcionais, arquiteturais 
 ## 3. Requisitos Funcionais (RF)
 
 ### 3.1. Cadastro de Usuário
-- **RF01 - Formulário de Cadastro:** A interface deve fornecer campos para identificador de usuário (usuário/e-mail/RA) e senha. A senha é digitada pelo próprio usuário, sem atalho para preencher a senha padrão do benchmark CMU.
+- **RF01 - Formulário de Cadastro:** A interface deve fornecer campos para identificador de usuário (usuário/e-mail/RA), senha e confirmação de senha. A senha é digitada pelo próprio usuário, sem atalho para preencher a senha padrão do benchmark CMU. Os campos de senha e confirmação de senha devem permitir ocultar o texto digitado por padrão (máscara de senha), oferecendo botões de alternância com ícones exclusivos de olho (`bx-show` e `bx-hide`) para exibir ou ocultar o texto escrito, sem uso de ícones de cadeado.
 - **RF02 - Redirecionamento Automático:** Concluída a validação textual do cadastro com sucesso, o sistema deve direcionar o usuário imediatamente para a tela de coleta de amostras de digitação.
 
 ### 3.2. Coleta de Amostras de Digitação (*Enrollment*)
@@ -262,3 +262,5 @@ Este documento segue as diretrizes estabelecidas no [AGENTS.md](file:///Users/th
 | `1.9.0` | 2026-11-07 | Júlia Vital | Tela de acesso bloqueado após decisão IMPOSTOR, com painel vermelho, métricas da tentativa e botão "Tentar novamente" (RF15, RF16). |
 | `1.9.1` | 2026-11-07 | Júlia Vital | O painel azul da sessão autenticada passa para a direita e desliza ao entrar após o acesso permitido (RNF10). |
 | `1.10.0` | 2026-11-07 | Júlia Vital | Botão de voltar (ícone de seta) na tela de coleta, retornando ao cadastro (RF17). |
+| `1.11.0` | 2026-11-08 | Thiago Dias / Antigravity | Adição da funcionalidade de ocultar/exibir o texto nos campos de senha na tela de cadastro (RF01). |
+| `1.11.1` | 2026-11-08 | Thiago Dias / Antigravity | Padronização dos botões de alternância de senha para uso exclusivo de ícones de olho (`bx-show` e `bx-hide`), eliminando cadeados (RF01, RNF10). |

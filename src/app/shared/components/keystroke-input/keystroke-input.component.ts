@@ -43,7 +43,7 @@ import { KeystrokeCaptureService } from '../../../core/services/keystroke-captur
           <i
             class="bx"
             [class.bx-show]="showPassword"
-            [class.bxs-lock-alt]="!showPassword"
+            [class.bx-hide]="!showPassword"
             aria-hidden="true"
           ></i>
         </button>
