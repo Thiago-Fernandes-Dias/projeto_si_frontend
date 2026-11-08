@@ -1,7 +1,8 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
+import { AuthService } from '../../core/services/auth.service';
 import { UserSessionService } from '../../core/services/user-session.service';
 import { KeystrokeCaptureService } from '../../core/services/keystroke-capture.service';
 import { BiometricApiService } from '../../core/services/biometric-api.service';
@@ -16,31 +17,28 @@ import {
   standalone: true,
   imports: [CommonModule, FormsModule, RouterModule, KeystrokeInputComponent],
   template: `
-    <div class="login-container">
-      <div class="login-card">
-        <div class="card-header">
-          <h2>Login com Biometria de Digitação</h2>
-          <p class="subtitle">
+    <div class="container panel-left">
+      <div class="form-box">
+        <form (ngSubmit)="onLoginSubmit()">
+          <h1>Login</h1>
+          <p class="form-subtitle">
             Autenticação combinada: validação de credencial textual e dinâmica de digitação.
           </p>
-        </div>
 
-        <form (ngSubmit)="onLoginSubmit()" class="form-body">
-          <div class="form-group">
-            <label for="usernameInput">Identificador do Usuário</label>
+          <div class="input-box">
             <input
               id="usernameInput"
               name="usernameInput"
               type="text"
               [(ngModel)]="username"
-              placeholder="Digite o identificador..."
-              class="form-control"
+              placeholder="Identificador do usuário"
+              aria-label="Identificador do usuário"
               required
             />
+            <i class="bx bxs-user" aria-hidden="true"></i>
           </div>
 
-          <div class="form-group">
-            <label>Senha do Usuário (Captura de Dinâmica Ativa)</label>
+          <div class="keystroke-group">
             <app-keystroke-input
               #keystrokeInput
               placeholder="Digite sua senha e tecle Enter..."
@@ -48,16 +46,11 @@ import {
             ></app-keystroke-input>
           </div>
 
-          <button
-            type="submit"
-            class="primary-button"
-            [disabled]="isAuthenticating"
-          >
-            {{ isAuthenticating ? 'Processando Inferência de IA...' : 'Autenticar Sessão ➔' }}
+          <button type="submit" class="btn" [disabled]="isAuthenticating">
+            {{ isAuthenticating ? 'Processando inferência de IA...' : 'Autenticar sessão' }}
           </button>
         </form>
 
-        <!-- Painel de Decisão de Acesso -->
         @if (authResult; as result) {
           <div
             class="decision-card"
@@ -66,9 +59,13 @@ import {
             [class.decision-invalid]="result.decision === 'INVALID_CREDENTIALS'"
           >
             <div class="decision-header">
-              <span class="decision-icon">
-                {{ result.decision === 'GENUINE' ? '✅' : result.decision === 'IMPOSTOR' ? '🚫' : '⚠️' }}
-              </span>
+              <i
+                class="bx decision-icon"
+                [class.bxs-check-circle]="result.decision === 'GENUINE'"
+                [class.bx-block]="result.decision === 'IMPOSTOR'"
+                [class.bxs-error]="result.decision === 'INVALID_CREDENTIALS'"
+                aria-hidden="true"
+              ></i>
               <div>
                 <h3>
                   {{
@@ -105,202 +102,93 @@ import {
             }
           </div>
         }
+      </div>
 
-        <div class="card-footer-nav">
-          <a routerLink="/register">← Voltar para o Cadastro / Trocar Senha</a>
-        </div>
+      <div class="toggle-panel">
+        <i class="bx bx-fingerprint panel-icon" aria-hidden="true"></i>
+        <h1>Keystroke Dynamics Biometrics</h1>
+        <p>Ainda não tem cadastro ou quer trocar a senha?</p>
+        <a routerLink="/register" class="btn">Cadastrar</a>
       </div>
     </div>
   `,
   styles: [`
-    .login-container {
-      max-width: 540px;
-      margin: 2rem auto;
-    }
-
-    .login-card {
-      background: #ffffff;
-      border-radius: 0.75rem;
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
-      border: 1px solid #e2e8f0;
-      overflow: hidden;
-    }
-
-    .card-header {
-      padding: 1.5rem 2rem;
-      background: #f8fafc;
-      border-bottom: 1px solid #e2e8f0;
-
-      h2 {
-        margin: 0;
-        color: #0f172a;
-        font-size: 1.5rem;
-      }
-
-      .subtitle {
-        margin: 0.5rem 0 0;
-        color: #64748b;
-        font-size: 0.9rem;
-      }
-    }
-
-    .form-body {
-      padding: 2rem;
-      display: flex;
-      flex-direction: column;
-      gap: 1.25rem;
-    }
-
-    .form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 0.35rem;
-
-      label {
-        font-size: 0.875rem;
-        font-weight: 600;
-        color: #334155;
-      }
-    }
-
-    .form-control {
-      padding: 0.75rem 1rem;
-      border: 1px solid #cbd5e1;
-      border-radius: 0.375rem;
-      font-size: 0.95rem;
-
-      &:focus {
-        border-color: #3b82f6;
-        outline: none;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
-      }
-    }
-
-    .primary-button {
-      padding: 0.85rem 1.5rem;
-      background: #0284c7;
-      color: #ffffff;
-      border: none;
-      border-radius: 0.375rem;
-      font-size: 1rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background-color 0.15s ease;
-
-      &:hover:not(:disabled) {
-        background: #0369a1;
-      }
-
-      &:disabled {
-        background: #94a3b8;
-        cursor: not-allowed;
-      }
+    .keystroke-group {
+      margin: 0 0 22px;
     }
 
     .decision-card {
-      margin: 0 2rem 1.5rem;
-      padding: 1.25rem;
-      border-radius: 0.5rem;
       display: flex;
       flex-direction: column;
-      gap: 1rem;
+      gap: 12px;
+      margin-top: 18px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      text-align: left;
 
       &.decision-allowed {
-        background-color: #ecfdf5;
-        border: 2px solid #10b981;
-        color: #065f46;
-
-        h3 {
-          color: #047857;
-        }
+        background: #e6f6ee;
+        color: #12633d;
       }
 
       &.decision-blocked {
-        background-color: #fef2f2;
-        border: 2px solid #ef4444;
-        color: #991b1b;
-
-        h3 {
-          color: #b91c1c;
-        }
+        background: #fdecec;
+        color: #9b1c1c;
       }
 
       &.decision-invalid {
-        background-color: #fffbeb;
-        border: 2px solid #f59e0b;
-        color: #92400e;
-
-        h3 {
-          color: #b45309;
-        }
+        background: #fff4dc;
+        color: #8a5300;
       }
     }
 
     .decision-header {
       display: flex;
       align-items: center;
-      gap: 0.75rem;
+      gap: 10px;
 
       .decision-icon {
-        font-size: 2rem;
+        font-size: 30px;
+        flex-shrink: 0;
       }
 
       h3 {
         margin: 0;
-        font-size: 1.15rem;
+        font-size: 14px;
         font-weight: 700;
-        letter-spacing: 0.05em;
+        letter-spacing: 0.04em;
       }
 
       .decision-message {
-        margin: 0.25rem 0 0;
-        font-size: 0.9rem;
+        margin: 2px 0 0;
+        font-size: 13px;
+        line-height: 1.4;
       }
     }
 
     .decision-metrics {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-      gap: 0.5rem;
-      padding-top: 0.75rem;
-      border-top: 1px dashed rgba(0, 0, 0, 0.15);
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      padding-top: 10px;
+      border-top: 1px dashed currentColor;
     }
 
     .metric-item {
       display: flex;
       flex-direction: column;
-      gap: 0.15rem;
     }
 
     .metric-label {
-      font-size: 0.7rem;
+      font-size: 11px;
       text-transform: uppercase;
+      letter-spacing: 0.04em;
       opacity: 0.8;
-      letter-spacing: 0.05em;
     }
 
     .metric-value {
-      font-family: monospace;
-      font-size: 1.1rem;
+      font-size: 16px;
       font-weight: 700;
-    }
-
-    .card-footer-nav {
-      padding: 1rem 2rem;
-      background: #f8fafc;
-      border-top: 1px solid #e2e8f0;
-      text-align: center;
-      font-size: 0.85rem;
-
-      a {
-        color: #2563eb;
-        text-decoration: none;
-        font-weight: 500;
-
-        &:hover {
-          text-decoration: underline;
-        }
-      }
     }
   `]
 })
@@ -308,6 +196,8 @@ export class LoginComponent implements OnInit {
   private readonly userSession = inject(UserSessionService);
   private readonly captureService = inject(KeystrokeCaptureService);
   private readonly biometricApi = inject(BiometricApiService);
+  private readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
 
   username = '';
   isAuthenticating = false;
@@ -356,6 +246,17 @@ export class LoginComponent implements OnInit {
         next: (response) => {
           this.authResult = response;
           this.isAuthenticating = false;
+          if (response.decision === 'GENUINE') {
+            this.authService.startSession({
+              username: this.username,
+              confidenceScore: response.confidenceScore,
+              authenticatedAt: new Date().toISOString()
+            });
+            this.router.navigate(['/session']);
+          } else if (response.decision === 'IMPOSTOR') {
+            this.authService.registerBlockedAttempt({ username: this.username, result: response });
+            this.router.navigate(['/blocked']);
+          }
         },
         error: () => {
           this.isAuthenticating = false;

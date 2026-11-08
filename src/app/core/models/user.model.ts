@@ -1,4 +1,4 @@
-import { KeystrokeSample } from './keystroke.model';
+import { AuthenticationResponse, KeystrokeSample } from './keystroke.model';
 
 export interface RegisteredUser {
   username: string;
@@ -12,4 +12,15 @@ export interface RegistrationRequest {
   username: string;
   targetPassword: string;
   confirmPassword: string;
+}
+
+export interface AuthenticatedSession {
+  username: string;
+  confidenceScore: number;
+  authenticatedAt: string;
+}
+
+export interface BlockedAttempt {
+  username: string;
+  result: AuthenticationResponse;
 }

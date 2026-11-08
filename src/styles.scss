@@ -1,21 +1,352 @@
-/* Reset básico e estilos globais */
+/*
+ * Identidade visual compartilhada (RNF10).
+ * A fonte Poppins e os ícones Boxicons são carregados no index.html.
+ */
+$brand-blue: #7494ec;
+$brand-blue-dark: #5b7ddc;
+$danger-red: #e05a5a;
+$danger-red-dark: #c84646;
+$text-color: #333;
+
 *, *::before, *::after {
   box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  padding: 0;
-  background-color: #f1f5f9;
-  color: #1e293b;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  min-height: 100vh;
+  background: linear-gradient(90deg, #e2e2e2, #c9d6ff);
+  color: $text-color;
+  font-family: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+button,
+input {
+  font-family: inherit;
 }
 
 code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  background-color: #e2e8f0;
+  background-color: rgba(116, 148, 236, 0.15);
   padding: 0.15rem 0.35rem;
   border-radius: 0.25rem;
   font-size: 0.85em;
+}
+
+/* Cartão dividido em duas metades: formulário + painel azul */
+.container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 100%;
+  max-width: 850px;
+  min-height: 550px;
+  margin: 20px auto;
+  background: #fff;
+  border-radius: 30px;
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+
+  h1 {
+    margin: 0 0 8px;
+    font-size: 32px;
+    line-height: 1.2;
+  }
+
+  p {
+    margin: 15px 0;
+    font-size: 14.5px;
+  }
+}
+
+.form-box {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 40px;
+  color: $text-color;
+  text-align: center;
+  animation: form-fade-in 0.6s ease-in-out 0.5s both;
+
+  > * {
+    width: 100%;
+  }
+}
+
+.container .form-subtitle {
+  margin: 0 0 10px;
+  color: #666;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.toggle-panel {
+  position: relative;
+  z-index: 2;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 40px;
+  background: $brand-blue;
+  color: #fff;
+  text-align: center;
+  border-radius: 150px 0 0 100px;
+  animation: panel-from-left 1s ease-in-out both;
+
+  p {
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+}
+
+/* Login e sessão: painel do lado esquerdo */
+.container.panel-left .toggle-panel {
+  order: -1;
+  border-radius: 0 150px 100px 0;
+  animation-name: panel-from-right;
+}
+
+.panel-icon {
+  font-size: 64px;
+  margin-bottom: 12px;
+}
+
+/* Campo de texto com ícone à direita */
+.input-box {
+  position: relative;
+  margin: 22px 0;
+
+  input {
+    width: 100%;
+    padding: 13px 50px 13px 20px;
+    background: #eee;
+    border: none;
+    border-radius: 8px;
+    outline: none;
+    color: $text-color;
+    font-size: 16px;
+    font-weight: 500;
+    transition: box-shadow 0.2s;
+
+    &::placeholder {
+      color: #888;
+      font-weight: 400;
+    }
+
+    &:focus {
+      box-shadow: 0 0 0 2px $brand-blue;
+    }
+  }
+
+  i {
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 20px;
+    color: #555;
+    pointer-events: none;
+  }
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 48px;
+  background: $brand-blue;
+  border: none;
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+
+  i {
+    font-size: 20px;
+  }
+
+  &:hover:not(:disabled) {
+    background: $brand-blue-dark;
+  }
+
+  &:disabled {
+    background: #a9b8e3;
+    cursor: not-allowed;
+  }
+}
+
+/* Botão vazado dentro do painel azul */
+.toggle-panel .btn {
+  width: 160px;
+  height: 46px;
+  background: transparent;
+  border: 2px solid #fff;
+  box-shadow: none;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.15);
+  }
+}
+
+/* Linhas de informação (sessão autenticada e acesso bloqueado) */
+.details-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 22px 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: #eee;
+    border-radius: 8px;
+    font-size: 14.5px;
+  }
+
+  i {
+    font-size: 20px;
+    color: $brand-blue;
+  }
+
+  strong {
+    margin-left: auto;
+  }
+}
+
+/* Variante vermelha (acesso bloqueado) */
+.container.danger {
+  .toggle-panel {
+    background: $danger-red;
+  }
+
+  .btn {
+    background: $danger-red;
+
+    &:hover:not(:disabled) {
+      background: $danger-red-dark;
+    }
+  }
+
+  .details-list i {
+    color: $danger-red;
+  }
+}
+
+.container .field-hint {
+  color: #777;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 15px 0;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.45;
+  text-align: left;
+
+  i {
+    flex-shrink: 0;
+    font-size: 18px;
+    line-height: 1.2;
+  }
+}
+
+.alert-error {
+  background: #fdecec;
+  color: #9b1c1c;
+}
+
+.alert-warning {
+  background: #fff4dc;
+  color: #8a5300;
+}
+
+.alert-success {
+  background: #e6f6ee;
+  color: #12633d;
+}
+
+@keyframes panel-from-left {
+  from {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes panel-from-right {
+  from {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes panel-from-top {
+  from {
+    transform: translateY(-100%);
+  }
+}
+
+@keyframes form-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Celular: painel no topo e formulário embaixo */
+@media screen and (max-width: 650px) {
+  .container {
+    grid-template-columns: 1fr;
+    min-height: auto;
+    margin: 10px auto;
+  }
+
+  .toggle-panel,
+  .container.panel-left .toggle-panel {
+    order: -1;
+    padding: 30px 20px 40px;
+    border-radius: 0 0 20vw 20vw;
+    animation-name: panel-from-top;
+  }
+
+  .form-box {
+    padding: 30px 20px;
+  }
+}
+
+@media screen and (max-width: 400px) {
+  .container h1 {
+    font-size: 26px;
+  }
+}
+
+/* Telas que continuam o mesmo lado da anterior não repetem o deslize */
+.container.static .toggle-panel,
+.container.static .form-box {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toggle-panel,
+  .form-box {
+    animation: none !important;
+  }
 }

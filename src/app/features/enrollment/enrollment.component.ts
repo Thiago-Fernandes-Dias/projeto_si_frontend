@@ -12,273 +12,241 @@ import { EnrollmentPayload } from '../../core/models/keystroke.model';
   standalone: true,
   imports: [CommonModule, KeystrokeInputComponent],
   template: `
-    <div class="enrollment-card">
-      <div class="card-header">
-        <span class="step-badge">Etapa 2 de 2</span>
-        <h2>Coleta de Amostras de Digitação</h2>
-        <p class="subtitle">
+    <div class="container static">
+      <div class="form-box">
+        <div>
+          <button
+            type="button"
+            class="back-button"
+            (click)="goBack()"
+            [disabled]="isSubmitting || submissionSuccess"
+            title="Voltar"
+            aria-label="Voltar para o cadastro"
+          >
+            <i class="bx bx-arrow-back" aria-hidden="true"></i>
+          </button>
+
+          <h1>Coleta de Amostras</h1>
+
+          <p class="form-subtitle">
+            Senha cadastrada para reprodução: <strong>{{ targetPassword }}</strong><br />
+            Usuário: <strong>{{ currentUsername }}</strong>
+          </p>
+
+          <div class="stepper-container">
+            <div class="stepper-header">
+              <span>Progresso da coleta</span>
+              <strong>{{ currentRepetition }} de {{ totalRequiredRepetitions }} amostras</strong>
+            </div>
+            <div class="progress-track">
+              <div
+                class="progress-fill"
+                [style.width.%]="(currentRepetition / totalRequiredRepetitions) * 100"
+              ></div>
+            </div>
+            <div class="steps-indicators">
+              @for (step of steps; track step) {
+                <div
+                  class="step-circle"
+                  [class.completed]="step <= currentRepetition"
+                  [class.active]="step === currentRepetition + 1"
+                >
+                  @if (step <= currentRepetition) {
+                    <i class="bx bx-check" aria-hidden="true"></i>
+                  } @else {
+                    {{ step }}
+                  }
+                </div>
+              }
+            </div>
+          </div>
+
+          @if (validationError) {
+            <div class="alert alert-warning" role="alert">
+              <i class="bx bxs-error" aria-hidden="true"></i>
+              <span>{{ validationError }}</span>
+            </div>
+          }
+
+          @if (submissionSuccess) {
+            <div class="alert alert-success" role="status">
+              <i class="bx bxs-check-circle" aria-hidden="true"></i>
+              <span>Coleta de 5 amostras concluída com sucesso! Redirecionando para login...</span>
+            </div>
+          }
+
+          <div class="input-section">
+            <label>Digite sua senha e pressione Enter</label>
+            <app-keystroke-input
+              #keystrokeInput
+              [disabled]="isSubmitting || submissionSuccess"
+              placeholder="Digite a senha e tecle Enter..."
+              (textSubmitted)="onSampleSubmitted($event)"
+            ></app-keystroke-input>
+          </div>
+        </div>
+      </div>
+
+      <div class="toggle-panel">
+        <i class="bx bxs-keyboard panel-icon" aria-hidden="true"></i>
+        <h1>Digite 5 vezes</h1>
+        <p>
           Para calibrar seu perfil biométrico com alta acurácia, digite sua senha exatamente
           <strong>5 vezes</strong> consecutivas no ritmo natural em que você costuma teclar.
         </p>
-      </div>
 
-      <div class="target-box">
-        <div class="target-label">Senha Cadastrada para Reprodução:</div>
-        <div class="target-password-display">{{ targetPassword }}</div>
-        <div class="target-user-info">Usuário: <strong>{{ currentUsername }}</strong></div>
-      </div>
-
-      <!-- Stepper Visual das 5 Repetições -->
-      <div class="stepper-container">
-        <div class="stepper-header">
-          <span>Progresso da Coleta</span>
-          <strong>{{ currentRepetition }} de {{ totalRequiredRepetitions }} Amostras Concluídas</strong>
+        <div class="guidelines">
+          <h4>Diretrizes de qualidade biométrica</h4>
+          <ul>
+            <li>Mantenha as duas mãos no teclado e digite no seu ritmo habitual.</li>
+            <li>
+              <strong>Não use Backspace ou Delete:</strong> se errar uma tecla, o campo reinicia
+              automaticamente para não distorcer as latências H, DD e UD.
+            </li>
+            <li>Colar a senha (<em>Paste</em>) é estritamente proibido.</li>
+          </ul>
         </div>
-        <div class="progress-track">
-          <div
-            class="progress-fill"
-            [style.width.%]="(currentRepetition / totalRequiredRepetitions) * 100"
-          ></div>
-        </div>
-        <div class="steps-indicators">
-          @for (step of steps; track step) {
-            <div
-              class="step-circle"
-              [class.completed]="step <= currentRepetition"
-              [class.active]="step === currentRepetition + 1 && !isEnrollmentComplete"
-            >
-              {{ step <= currentRepetition ? '✓' : step }}
-            </div>
-          }
-        </div>
-      </div>
-
-      @if (validationError) {
-        <div class="warning-banner" role="alert">
-          ⚠️ {{ validationError }}
-        </div>
-      }
-
-      @if (submissionSuccess) {
-        <div class="success-banner" role="status">
-          🎉 Coleta de 5 amostras concluída com sucesso! Redirecionando para login...
-        </div>
-      }
-
-      @if (!isEnrollmentComplete) {
-        <div class="input-section">
-          <label>
-            Digite a repetição <strong>#{{ currentRepetition + 1 }}</strong> de <strong>{{ totalRequiredRepetitions }}</strong> e pressione <strong>Enter</strong>:
-          </label>
-          <app-keystroke-input
-            #keystrokeInput
-            [disabled]="isSubmitting"
-            placeholder="Digite a senha e tecle Enter..."
-            (textSubmitted)="onSampleSubmitted($event)"
-          ></app-keystroke-input>
-        </div>
-      } @else {
-        <div class="processing-section">
-          <div class="spinner"></div>
-          <p>
-            {{ submissionSuccess ? 'Todas as 5 amostras coletadas. Redirecionando...' : 'Processando e enviando lote de 5 amostras biométricas...' }}
-          </p>
-        </div>
-      }
-
-      <div class="instructions-box">
-        <h4>Diretrizes de Qualidade Biométrica:</h4>
-        <ul>
-          <li>Mantenha as duas mãos no teclado e digite no seu ritmo habitual.</li>
-          <li><strong>Não use Backspace ou Delete:</strong> se errar uma tecla, o campo reinicia automaticamente para não distorcer as latências $H$, $DD$ e $UD$.</li>
-          <li>Ação de colar (*Paste*) é estritamente proibida.</li>
-        </ul>
       </div>
     </div>
   `,
   styles: [`
-    .enrollment-card {
-      max-width: 600px;
-      margin: 2rem auto;
-      background: #ffffff;
-      border-radius: 0.75rem;
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
-      border: 1px solid #e2e8f0;
-      padding: 2rem;
+    .back-button {
+      position: absolute;
+      top: 24px;
+      left: 24px;
       display: flex;
-      flex-direction: column;
-      gap: 1.5rem;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      padding: 0;
+      background: #eee;
+      border: none;
+      border-radius: 50%;
+      color: #333;
+      font-size: 22px;
+      cursor: pointer;
+      transition: background-color 0.2s, color 0.2s;
+
+      &:hover:not(:disabled) {
+        background: #dfe5f8;
+        color: #4a6fd6;
+      }
+
+      &:focus-visible {
+        outline: 2px solid #7494ec;
+        outline-offset: 2px;
+      }
+
+      &:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
     }
 
-    .card-header {
-      border-bottom: 1px solid #e2e8f0;
-      padding-bottom: 1rem;
-    }
-
-    .step-badge {
-      display: inline-block;
-      padding: 0.25rem 0.5rem;
-      background: #fef3c7;
-      color: #92400e;
-      font-size: 0.75rem;
-      font-weight: 600;
-      border-radius: 9999px;
-      margin-bottom: 0.5rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    h2 {
-      margin: 0;
-      color: #0f172a;
-      font-size: 1.5rem;
-    }
-
-    .subtitle {
-      margin: 0.5rem 0 0;
-      color: #64748b;
-      font-size: 0.9rem;
-      line-height: 1.4;
-    }
-
-    .target-box {
-      background: #f8fafc;
-      border: 1px dashed #cbd5e1;
-      border-radius: 0.5rem;
-      padding: 1rem;
-      text-align: center;
-    }
-
-    .target-label {
-      font-size: 0.8rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: #64748b;
-      margin-bottom: 0.25rem;
-    }
-
-    .target-password-display {
-      font-family: monospace;
-      font-size: 1.4rem;
-      font-weight: 700;
-      letter-spacing: 0.15em;
-      color: #0284c7;
-    }
-
-    .target-user-info {
-      font-size: 0.85rem;
-      color: #475569;
-      margin-top: 0.25rem;
+    @media screen and (max-width: 650px) {
+      .back-button {
+        top: 16px;
+        left: 16px;
+      }
     }
 
     .stepper-container {
       display: flex;
       flex-direction: column;
-      gap: 0.5rem;
+      gap: 8px;
+      margin: 18px 0;
     }
 
     .stepper-header {
       display: flex;
       justify-content: space-between;
-      font-size: 0.875rem;
-      color: #334155;
+      font-size: 13px;
+      color: #555;
     }
 
     .progress-track {
       width: 100%;
       height: 8px;
-      background: #e2e8f0;
-      border-radius: 9999px;
+      background: #eee;
+      border-radius: 999px;
       overflow: hidden;
     }
 
     .progress-fill {
       height: 100%;
-      background: #10b981;
+      background: #7494ec;
       transition: width 0.3s ease;
     }
 
     .steps-indicators {
       display: flex;
       justify-content: space-between;
-      margin-top: 0.5rem;
+      margin-top: 4px;
     }
 
     .step-circle {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 0.85rem;
-      font-weight: 700;
-      border: 2px solid #cbd5e1;
-      background: #ffffff;
-      color: #64748b;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      border: 2px solid #ddd;
+      background: #fff;
+      color: #888;
+      font-size: 14px;
+      font-weight: 600;
+
+      i {
+        font-size: 20px;
+      }
 
       &.active {
-        border-color: #3b82f6;
-        color: #3b82f6;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        border-color: #7494ec;
+        color: #7494ec;
+        box-shadow: 0 0 0 3px rgba(116, 148, 236, 0.25);
       }
 
       &.completed {
-        background: #10b981;
-        border-color: #10b981;
-        color: #ffffff;
+        background: #7494ec;
+        border-color: #7494ec;
+        color: #fff;
       }
     }
 
     .input-section {
       display: flex;
       flex-direction: column;
-      gap: 0.5rem;
+      gap: 8px;
+      text-align: left;
 
       label {
-        font-size: 0.95rem;
-        color: #1e293b;
+        font-size: 14px;
+        color: #333;
       }
     }
 
-    .warning-banner {
-      padding: 0.75rem 1rem;
-      background: #fffbeb;
-      border-left: 4px solid #f59e0b;
-      color: #b45309;
-      font-size: 0.875rem;
-      border-radius: 0.25rem;
-    }
-
-    .success-banner {
-      padding: 0.75rem 1rem;
-      background: #ecfdf5;
-      border-left: 4px solid #10b981;
-      color: #065f46;
-      font-size: 0.9rem;
-      font-weight: 600;
-      border-radius: 0.25rem;
-    }
-
-    .instructions-box {
-      background: #f1f5f9;
-      padding: 1rem;
-      border-radius: 0.5rem;
-      font-size: 0.85rem;
-      color: #475569;
+    .guidelines {
+      width: 100%;
+      padding: 14px 16px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      text-align: left;
+      font-size: 13px;
+      line-height: 1.5;
 
       h4 {
-        margin: 0 0 0.5rem;
-        color: #1e293b;
-        font-size: 0.9rem;
+        margin: 0 0 6px;
+        font-size: 13.5px;
       }
 
       ul {
         margin: 0;
-        padding-left: 1.25rem;
+        padding-left: 18px;
         display: flex;
         flex-direction: column;
-        gap: 0.25rem;
+        gap: 4px;
       }
     }
     .processing-section {
@@ -338,6 +306,12 @@ export class EnrollmentComponent {
 
   get isEnrollmentComplete(): boolean {
     return this.userSession.isEnrollmentComplete() || this.currentRepetition >= this.totalRequiredRepetitions;
+  }
+
+  goBack(): void {
+    this.captureService.stopRecording();
+    this.captureService.reset();
+    this.router.navigate(['/register']);
   }
 
   onSampleSubmitted(enteredText: string): void {
