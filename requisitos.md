@@ -50,12 +50,18 @@ Este documento detalha os requisitos funcionais, não-funcionais, arquiteturais 
 - **RF17 - Voltar ao Cadastro:** A tela de coleta oferece um botão de voltar identificado apenas por um ícone de seta (com rótulo acessível "Voltar para o cadastro"), que encerra a captura em andamento, apaga o texto digitado e retorna à tela de cadastro. O botão fica desabilitado durante o envio do lote e depois da conclusão da coleta.
 
 ### 3.3. Captura e Extração de Características
-- **RF08 - Registro Temporal de Alta Precisão:** A captura dos eventos de teclado (`keydown` e `keyup`) deve ser realizada utilizando a API `performance.now()`.
-- **RF09 - Cálculo de Métricas por Tecla:** A aplicação deve gerar para cada digitação:
-  - **Hold Time ($H$):** Duração da pressão da tecla ($T_{\text{keyup}} - T_{\text{keydown}}$).
-  - **Down-Down ($DD$):** Latência entre a pressão da tecla atual e a próxima tecla ($T_{\text{keydown}_{i+1}} - T_{\text{keydown}_i}$).
-  - **Up-Down ($UD$):** Tempo de voo entre a liberação da tecla atual e a pressão da próxima tecla ($T_{\text{keydown}_{i+1}} - T_{\text{keyup}_i}$).
-  - Captura opcional/padronizada da tecla de submissão (`Return`/Enter) como fechamento da sequência.
+- **RF08 - Registro Temporal de Alta Precisão:** A captura dos eventos de teclado (`keydown` e `keyup`) deve ser realizada utilizando a API `performance.now()` armazenando registros em buffer cronológico (`eventKeyLog`) com eventos do tipo `RawEventType` (`KEY_DOWN` e `KEY_UP`). O caractere digitado é registrado exclusivamente no momento do `KEY_DOWN`.
+- **RF09 - Determinação Dinâmica de Intervalos e Cálculo de Métricas:**
+  - **Função de Determinação de Intervalos:** A partir de qualquer senha definida (tomando como referência o benchmark CMU para `.tie5Roanl`), o sistema determina dinamicamente o conjunto de colunas/intervalos a serem extraídos.
+  - **Identificação Sequencial Anti-Colisão:** Para prevenir sobrescrita de atributos quando a senha contiver caracteres ou dígrafos repetidos, os nomes dos intervalos recebem uma sequência indexada iniciada em 0 (ex.: `H.t.0`, `H.t.1`, `DD.t.e.0`, `UD.t.e.0`).
+  - **Métricas Temporais Extraídas:**
+    - **Hold Time ($H$):** Duração da pressão da tecla ($T_{\text{keyup}} - T_{\text{keydown}}$) para cada tecla da senha (`H.<key>.<seq>`).
+    - **Down-Down ($DD$):** Latência entre a pressão da tecla atual e a próxima tecla ($T_{\text{keydown}_{i+1}} - T_{\text{keydown}_i}$) para cada par consecutivo (`DD.<key1>.<key2>.<seq>`).
+    - **Up-Down ($UD$):** Tempo de voo entre a liberação da tecla atual e a pressão da próxima tecla ($T_{\text{keydown}_{i+1}} - T_{\text{keyup}_i}$) para cada par consecutivo (`UD.<key1>.<key2>.<seq>`).
+- **RF10 - Validação Estrita da Sequência de Digitação:** Validação da cronologia do `eventKeyLog` antes do cômputo da amostra, assegurando que:
+  - Os eventos `KEY_DOWN` correspondam exatamente e em ordem crescente de timestamp a cada caractere da senha.
+  - Cada `KEY_DOWN` possua seu `KEY_UP` correspondente.
+  - Teclas não tenham sido liberadas fora da ordem de digitação nem mantidas pressionadas de forma anômala (impedindo que o usuário mantenha uma tecla pressionada e a libere apenas ao final da senha).
 
 ### 3.4. Login e Autenticação Biométrica
 - **RF10 - Tela de Autenticação:** Campo de identificação e campo de senha monitorado por serviço de dinâmica de digitação, sem necessidade de configuração ou escolha manual de modelo por parte do usuário final.
@@ -245,22 +251,15 @@ docker-compose.yml                    # Orquestração multi-container do fronte
 
 Este documento segue as diretrizes estabelecidas no [AGENTS.md](file:///Users/thiago/Repositories/projeto_si_frontend/AGENTS.md) e deve ser atualizado obrigatoriamente a cada nova solicitação de funcionalidade ou alteração de escopo.
 
-| Versão | Data | Autor / Agente | Commit | Descrição das Modificações |
-|---|---|---|---|---|
-| `1.0.0` | 2026-11-07 | Thiago Dias / Antigravity | `6fc6613` | Criação da especificação de requisitos do sistema (`requisitos.md`) e das diretrizes de governança técnica para agentes de IA (`AGENTS.md`). |
-| `1.1.0` | 2026-11-07 | Thiago Dias / Antigravity | `88512f4` | Implementação inicial do frontend Angular 18 para autenticação por dinâmica de digitação: formulário de cadastro (RF01, RF02), coleta guiada de 5 amostras baseada no benchmark CMU (`DSL-StrongPasswordData.csv`) (RF03-RF07), captura temporal de alta precisão via `performance.now()` (RF08, RF09, RNF01) e inferência de login (RF10-RF12). |
-| `1.2.0` | 2026-11-07 | Thiago Dias / Antigravity | `9a95a1c` | Inclusão dos requisitos de infraestrutura e automação: `Dockerfile` multi-stage com Nginx (RNF06), automação via `Makefile` (RNF07) para build, testes e execução local, e documentação no README. |
-| `1.3.0` | 2026-11-07 | Thiago Dias / Antigravity | `6689264` | Simplificação da jornada do usuário: remoção da Dashboard e dos links abertos de navegação global (fluxo linear obrigatório Cadastro → Coleta → Login) e remoção da seleção manual de algoritmos na tela de login (RF10). |
-| `1.4.0` | 2026-11-07 | Thiago Dias / Antigravity | `2d2804c` | Disponibilização do servidor Mock API em Python/Flask na pasta `mock_api/` (RNF08) para simulação dos endpoints biométricos (`/api/register`, `/api/enrollment`, `/api/authenticate`) e configuração de proxy no Angular CLI (`proxy.conf.json`). |
-| `1.5.0` | 2026-11-07 | Thiago Dias / Antigravity | `c537bad` | Remoção do endpoint e dos métodos de consulta/listagem de algoritmos na Mock API e no serviço `BiometricApiService`. |
-| `1.5.1` | 2026-11-07 | Thiago Dias / Antigravity | `4d788b7` | Ajuste no fluxo de coleta de amostras (RF03): encerramento imediato e estrito após a conclusão da 5ª repetição válida, ocultando o campo de entrada e bloqueando repetições excedentes. |
-| `1.5.2` | 2026-11-07 | Thiago Dias / Antigravity | `d16c355` | Refatoração visual para remoção de menções técnicas explícitas a `performance.now()` nos templates das telas de cadastro e coleta. |
-| `1.5.3` | 2026-11-07 | Thiago Dias / Antigravity | `9d42da0` | Configuração de tipagem Jasmine no `tsconfig.json` e atualização das regras do `.gitignore`. |
-| `1.6.0` | 2026-11-07 | Thiago Dias / Antigravity | `d647637` | Remoção dos tipos e referências a algoritmos de Machine Learning (`MachineLearningAlgorithm`) nos modelos e serviços do frontend, consolidando a classificação direta (RF10). |
-| `1.7.0` | 2026-11-07 | Thiago Dias / Antigravity | `41b2337` | Orquestração multi-container com Docker Compose (`docker-compose.yml`, RNF09), containerização da Mock API (`mock_api/Dockerfile`) e proxy reverso no Nginx com healthcheck e rede dedicada. |
-| `1.8.0` | 2026-11-07 | Júlia Vital | `51aae96` | Implementação de sessão autenticada persistida e rota `/session` protegida por `authGuard` (RF13); botão "Sair" com limpeza de senha e cancelamento de captura (RF14); nova identidade visual com cartão central dividido e painel azul deslizante (RNF10); e remoção do atalho para senha padrão CMU no cadastro (RF01). |
-| `1.9.0` | 2026-11-07 | Júlia Vital | `4e0aadb` | Criação da tela de acesso bloqueado (`/blocked`) com painel vermelho e métricas da tentativa para decisões IMPOSTOR protegida por `blockedAttemptGuard` (RF15); botão "Tentar novamente" (RF16); e botão de voltar (ícone de seta) na tela de coleta retornando ao cadastro (RF17). |
-| `1.9.1` | 2026-11-08 | Thiago Dias / Antigravity | `3aa77e7` | Correção de compatibilidade na suíte de testes unitários pós-merge: remoção da propriedade obsoleta `algorithm` nos objetos de teste de autenticação em 5 arquivos `.spec.ts`. |
-| `1.10.0` | 2026-11-08 | Thiago Dias / Antigravity | `0cc7dc3` | Adição da funcionalidade de ocultar o texto escrito nos campos de senha por padrão (`type="password"`), com botões de alternância de visibilidade utilizando exclusivamente ícones de olho (`bx-show` e `bx-hide`) na tela de cadastro e no componente biométrico (RF01, RNF10). |
-| `1.11.0` | 2026-11-08 | Thiago Dias / Antigravity | `eb9025c` | Refatoração arquitetural dos componentes de interface (RNF05): desacoplamento modular de templates (`*.component.html`), estilos (`*.component.scss`) e classes controladoras (`*.component.ts`), utilizando `templateUrl` e `styleUrl`. |
-| `1.12.0` | 2026-11-08 | Thiago Dias / Antigravity | - | Exibição de botão para avançar manualmente ao login após as 5 repetições da coleta (RF03, RF07) com bloqueio do campo de senha, eliminando o redirecionamento automático. |
+| Versão | Data | Autor / Agente | Descrição das Modificações |
+|---|---|---|---|
+| `1.0.0` | 2026-11-07 | Thiago Dias / Antigravity | Versão inicial dos requisitos de Keystroke Dynamics e arquitetura Angular. |
+| `1.1.0` | 2026-11-07 | Thiago Dias / Antigravity | Integração do fluxo de cadastro com coleta de 5 amostras obrigatórias, mapeamento do benchmark CMU (`DSL-StrongPasswordData.csv`), definição do payload JSON e governança via `AGENTS.md`. |
+| `1.2.0` | 2026-11-07 | Thiago Dias / Antigravity | Inclusão dos requisitos de infraestrutura: Dockerfile (containerização) e Makefile para automação de build, testes e execução em modo de desenvolvimento. |
+| `1.3.0` | 2026-11-07 | Thiago Dias / Antigravity | Simplificação de interface: remoção da Dashboard, remoção dos links da barra de navegação global (fluxo linear guiado Cadastro -> Coleta -> Login) e remoção da escolha manual de algoritmos na tela de login. |
+| `1.4.0` | 2026-11-07 | Thiago Dias / Antigravity | Criação da Mock API em Python/Flask na pasta dedicada `mock_api/` e configuração de proxy no frontend Angular para resolução de chamadas `/api/*`. |
+| `1.5.0` | 2026-11-07 | Thiago Dias / Antigravity | Remoção de qualquer menção ou endpoint de listagem de algoritmos na Mock API e no serviço do frontend. |
+| `1.6.0` | 2026-11-07 | Thiago Dias / Antigravity | Correção do encerramento da coleta: remoção da solicitação da 6ª amostra e bloqueio imediato da entrada após a 5ª repetição válida. |
+| `1.7.0` | 2026-11-07 | Thiago Dias / Antigravity | Remoção de menções explícitas à API técnica `performance.now()` nos textos visíveis ao usuário final na interface (UI). |
+| `1.8.0` | 2026-11-07 | Thiago Dias / Antigravity | Remoção completa dos tipos e propriedades de algoritmos (`MachineLearningAlgorithm`, `selectedAlgorithm`, `algorithm`) dos modelos, serviços e componentes do frontend. |
+| `1.9.0` | 2026-11-07 | Thiago Dias / Antigravity | Refatoração de captura: buffer `eventKeyLog` com `RawEventType` (`KEY_DOWN`/`KEY_UP`), registro de texto no `keydown`, determinação dinâmica de intervalos a partir da senha, sufixo sequencial anti-colisão (`H.t.0`, `H.t.1`) e validação estrita anti-retenção de teclas. |

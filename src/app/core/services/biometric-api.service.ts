@@ -59,12 +59,16 @@ export class BiometricApiService {
   }
 
   private simulateLocalBiometricDecision(payload: AuthenticationPayload): AuthenticationResponse {
-    const rawKeys = payload.sample.rawTimings;
-    const holdTimes = rawKeys.map((k) => ((k.releaseTime ?? k.pressTime) - k.pressTime) / 1000);
+    const features = payload.sample.features || {};
+    const holdTimes = Object.entries(features)
+      .filter(([key]) => key.startsWith('H.'))
+      .map(([, val]) => val);
     const averageHoldSeconds =
-      holdTimes.reduce((acc, current) => acc + current, 0) / (holdTimes.length || 1);
+      holdTimes.length > 0
+        ? holdTimes.reduce((acc, current) => acc + current, 0) / holdTimes.length
+        : 0.12;
 
-    // Heurística de simulação: digitações humanas comuns ficam entre 0.05s e 0.25s
+    // Heurística de simulação: digitações humanas comuns ficam entre 0.05s e 0.28s
     const isHumanHold = averageHoldSeconds >= 0.05 && averageHoldSeconds <= 0.28;
     const confidenceScore = isHumanHold ? 0.91 : 0.42;
     const decision = confidenceScore >= 0.75 ? 'GENUINE' : 'IMPOSTOR';

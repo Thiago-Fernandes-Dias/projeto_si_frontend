@@ -1,8 +1,11 @@
+export type RawEventType = 'KEY_DOWN' | 'KEY_UP';
+export type KeyEventType = RawEventType;
+
 export interface RawKeyEvent {
   key: string;
   code: string;
-  pressTime: number;
-  releaseTime?: number;
+  timestamp: number;
+  eventType: RawEventType;
 }
 
 export interface KeystrokeFeatures {

@@ -46,9 +46,10 @@ describe('BiometricApiService', () => {
       sample: {
         repetition: 1,
         textEntered: 'senha123',
-        features: {},
+        features: { 'H.s.0': 0.1 },
         rawTimings: [
-          { key: 's', code: 'KeyS', pressTime: 100, releaseTime: 200 }
+          { key: 's', code: 'KeyS', timestamp: 100, eventType: 'KEY_DOWN' },
+          { key: 's', code: 'KeyS', timestamp: 200, eventType: 'KEY_UP' }
         ],
         totalDurationMs: 100
       }
@@ -77,9 +78,10 @@ describe('BiometricApiService', () => {
       sample: {
         repetition: 1,
         textEntered: 'senha123',
-        features: {},
+        features: { 'H.a.0': 0.12 },
         rawTimings: [
-          { key: 'a', code: 'KeyA', pressTime: 100, releaseTime: 220 }
+          { key: 'a', code: 'KeyA', timestamp: 100, eventType: 'KEY_DOWN' },
+          { key: 'a', code: 'KeyA', timestamp: 220, eventType: 'KEY_UP' }
         ],
         totalDurationMs: 120
       }

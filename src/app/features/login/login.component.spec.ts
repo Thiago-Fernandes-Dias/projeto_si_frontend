@@ -84,9 +84,26 @@ describe('LoginComponent', () => {
     expect(router.navigate).not.toHaveBeenCalled();
   });
 
-  it('deve abrir a sessão e navegar para /session quando a decisão for GENUINE', () => {
-    biometricApiSpy.authenticate.and.returnValue(of(buildResponse('GENUINE', 0.94)));
-    spyOn(captureService, 'computeSample').and.returnValue(capturedSample);
+  it('deve chamar API e exibir resultado GENUINE quando autenticado com sucesso', () => {
+    const mockAuthResponse: AuthenticationResponse = {
+      decision: 'GENUINE',
+      confidenceScore: 0.94,
+      thresholdScore: 0.75,
+      inferenceTimeMs: 15,
+      message: 'Acesso Permitido'
+    };
+    biometricApiSpy.authenticate.and.returnValue(of(mockAuthResponse));
+
+    spyOn(captureService, 'computeSample').and.returnValue({
+      repetition: 1,
+      textEntered: '.tie5Roanl',
+      features: { 'H.period': 0.14 },
+      rawTimings: [
+        { key: '.', code: 'Period', timestamp: 100, eventType: 'KEY_DOWN' },
+        { key: '.', code: 'Period', timestamp: 240, eventType: 'KEY_UP' }
+      ],
+      totalDurationMs: 140
+    });
 
     component.onPasswordSubmitted('.tie5Roanl');
 
