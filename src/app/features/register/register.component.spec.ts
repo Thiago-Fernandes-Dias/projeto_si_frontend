@@ -38,6 +38,7 @@ describe('RegisterComponent', () => {
   it('deve exibir o nome do sistema no painel azul', () => {
     const panel = (fixture.nativeElement as HTMLElement).querySelector('.toggle-panel');
     expect(panel?.querySelector('h1')?.textContent).toContain('Keystroke Dynamics Biometrics');
+    expect(panel?.textContent).not.toContain('Etapa 1 de 2');
   });
 
   it('deve mostrar "Usuário" como dica no campo de identificador', () => {

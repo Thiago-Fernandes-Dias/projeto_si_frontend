@@ -100,14 +100,26 @@ describe('LoginComponent', () => {
     expect(router.navigate).toHaveBeenCalledWith(['/session']);
   });
 
-  it('não deve abrir sessão nem navegar quando a decisão for IMPOSTOR', () => {
-    biometricApiSpy.authenticate.and.returnValue(of(buildResponse('IMPOSTOR', 0.42)));
+  it('deve registrar a tentativa bloqueada e navegar para /blocked quando a decisão for IMPOSTOR', () => {
+    const impostorResponse = buildResponse('IMPOSTOR', 0.42);
+    biometricApiSpy.authenticate.and.returnValue(of(impostorResponse));
     spyOn(captureService, 'computeSample').and.returnValue(capturedSample);
 
     component.onPasswordSubmitted('.tie5Roanl');
 
     expect(component.authResult?.decision).toBe('IMPOSTOR');
     expect(authService.isAuthenticated()).toBeFalse();
-    expect(router.navigate).not.toHaveBeenCalled();
+    expect(authService.blockedAttempt()).toEqual({ username: 'usuario_teste', result: impostorResponse });
+    expect(router.navigate).toHaveBeenCalledWith(['/blocked']);
+  });
+
+  it('não deve registrar tentativa bloqueada quando a decisão for GENUINE', () => {
+    biometricApiSpy.authenticate.and.returnValue(of(buildResponse('GENUINE', 0.94)));
+    spyOn(captureService, 'computeSample').and.returnValue(capturedSample);
+
+    component.onPasswordSubmitted('.tie5Roanl');
+
+    expect(authService.blockedAttempt()).toBeNull();
+    expect(router.navigate).not.toHaveBeenCalledWith(['/blocked']);
   });
 });

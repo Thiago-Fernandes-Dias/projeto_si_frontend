@@ -16,13 +16,13 @@ Este documento detalha os requisitos funcionais, não-funcionais, arquiteturais 
 [Tela de Cadastro] 
        │ (Cadastro com sucesso)
        ▼
-[Tela de Coleta de Amostras (Enrollment)]
+[Tela de Coleta de Amostras (Enrollment)] ── (Voltar) ──► [Tela de Cadastro]
        │ (Digitar a senha exatamente 5 vezes consecutivas)
        ▼
 [Envio do Lote de 5 Amostras ao Backend] ──► [Treinamento do Modelo do Usuário]
        │
        ▼
-[Tela de Login Biométrico]
+[Tela de Login Biométrico] ── (Decisão IMPOSTOR) ──► [Tela de Acesso Bloqueado] ── (Tentar novamente) ──► [Tela de Login]
        │ (Decisão GENUINE)
        ▼
 [Área de Sessão Autenticada] ── (Sair) ──► [Tela de Login]
@@ -47,6 +47,7 @@ Este documento detalha os requisitos funcionais, não-funcionais, arquiteturais 
 - **RF05 - Validação Textual e Descarte de Inconsistências:** A amostra só é contabilizada se o texto digitado corresponder exatamente à senha escolhida no cadastro. Se houver discrepância de caracteres, a amostra é descartada com aviso instrutivo ao usuário.
 - **RF06 - Invalidação por Correção ou Colagem:** Caso o usuário pressione teclas de correção (*Backspace*, *Delete*) ou realize colagem (*Paste*), o campo é limpo e a repetição atual deve ser reiniciada, assegurando a pureza do fluxo temporal.
 - **RF07 - Submissão do Lote de Treinamento:** Ao atingir a 5ª repetição válida, o frontend monta o pacote com as 5 amostras temporais e dispara a requisição HTTP POST para a API backend.
+- **RF17 - Voltar ao Cadastro:** A tela de coleta oferece um botão de voltar identificado apenas por um ícone de seta (com rótulo acessível "Voltar para o cadastro"), que encerra a captura em andamento, apaga o texto digitado e retorna à tela de cadastro. O botão fica desabilitado durante o envio do lote e depois da conclusão da coleta.
 
 ### 3.3. Captura e Extração de Características
 - **RF08 - Registro Temporal de Alta Precisão:** A captura dos eventos de teclado (`keydown` e `keyup`) deve ser realizada utilizando a API `performance.now()`.
@@ -68,6 +69,10 @@ Este documento detalha os requisitos funcionais, não-funcionais, arquiteturais 
 - **RF13 - Sessão e Rota Protegida:** Quando a decisão biométrica for `GENUINE`, o frontend registra a sessão do usuário (persistida em `localStorage`) e o direciona para a rota `/session`, protegida por guard (`authGuard`). Acessos à rota sem sessão ativa são redirecionados para `/login`.
 - **RF14 - Encerramento de Sessão:** A área autenticada oferece o botão "Sair", que remove a sessão, apaga a senha digitada e os tempos capturados no login (encerrando a captura) e retorna à tela de login com o campo de senha vazio.
 
+### 3.6. Acesso Bloqueado
+- **RF15 - Tela de Acesso Bloqueado:** Quando a decisão biométrica for `IMPOSTOR`, o frontend guarda a tentativa em memória (sem `localStorage`) e direciona o usuário para a rota `/blocked`, protegida pelo guard `blockedAttemptGuard`; sem uma tentativa bloqueada registrada, o acesso é redirecionado para `/login`. A tela segue o layout da sessão autenticada, com o painel lateral em vermelho deslizando para a direita, o título "ACESSO BLOQUEADO (IMPOSTOR DETECTADO)" e a mensagem retornada pela API. No lugar dos dados da sessão, exibe Grau de Confiança, Limiar de Decisão, Tempo de Inferência e Hold Médio da tentativa.
+- **RF16 - Nova Tentativa:** O botão "Tentar novamente" descarta a tentativa bloqueada, apaga a senha digitada e os tempos capturados e retorna à tela de login.
+
 ---
 
 ## 4. Requisitos Não-Funcionais (RNF)
@@ -81,7 +86,7 @@ Este documento detalha os requisitos funcionais, não-funcionais, arquiteturais 
 - **RNF07 - Automação via Makefile:** Criação de `Makefile` com comandos padronizados para instalação de dependências (`make install`), build da aplicação (`make build`), execução de testes (`make test`), inicialização do servidor de desenvolvimento local (`make dev`), construção da imagem Docker (`make docker-build`) e execução do container (`make docker-run`).
 - **RNF08 - Mock API em Python/Flask:** Disponibilização de servidor Mock em Python (Flask + Flask-CORS) em pasta dedicada (`mock_api/`) para responder às requisições do frontend com dados fictícios e simulação biométrica (`/api/register`, `/api/enrollment`, `/api/authenticate`), além de configuração de proxy no Angular CLI (`proxy.conf.json`) para integração transparente em desenvolvimento.
 - **RNF09 - Orquestração Multi-container com Docker Compose:** Disponibilização de arquivo `docker-compose.yml` e `mock_api/Dockerfile` para orquestração conjunta da aplicação frontend (Angular servido via Nginx) e da Mock API (Python/Flask) em containers isolados conectados por rede bridge dedicada (`keystroke-network`). A configuração de proxy reverso do Nginx deve rotear chamadas `/api/` diretamente para o hostname do serviço da mock api (`http://mock-api:5000`), com dependência condicional de healthcheck.
-- **RNF10 - Identidade Visual:** As telas usam um cartão branco central (cantos de 30 px) dividido em duas metades: o formulário e um painel azul (`#7494ec`) com borda curva. Fonte Poppins (Google Fonts), ícones Boxicons 2.1.4 e fundo em gradiente (`#e2e2e2` → `#c9d6ff`). Cadastro e coleta mostram o painel à direita; login e sessão, à esquerda. Ao entrar no cadastro ou no login, o painel desliza para o seu lado, como na troca entre cadastro e login do modelo visual de referência. Abaixo de 650 px de largura, o painel fica no topo e o formulário embaixo. As classes visuais compartilhadas ficam em `src/styles.scss`. O campo de senha do login e da coleta continua sendo o `app-keystroke-input` (RF08). Login por outras plataformas (Google, Facebook, GitHub, LinkedIn), recuperação de senha e campo de e-mail do modelo de referência ficam fora do escopo. O fluxo linear da seção 2 é mantido: o painel do cadastro não oferece atalho para o login. Os painéis do cadastro e do login exibem o nome do sistema, "Keystroke Dynamics Biometrics", e a página não tem cabeçalho no topo nem rodapé: só o cartão aparece sobre o fundo.
+- **RNF10 - Identidade Visual:** As telas usam um cartão branco central (cantos de 30 px) dividido em duas metades: o formulário e um painel azul (`#7494ec`) com borda curva. Fonte Poppins (Google Fonts), ícones Boxicons 2.1.4 e fundo em gradiente (`#e2e2e2` → `#c9d6ff`). Cadastro, coleta, sessão autenticada e acesso bloqueado mostram o painel à direita; o login, à esquerda. Ao entrar no cadastro, no login, na sessão autenticada ou no acesso bloqueado, o painel desliza para o seu lado, como na troca entre cadastro e login do modelo visual de referência; a coleta, que vem logo após o cadastro, não repete o movimento. Abaixo de 650 px de largura, o painel fica no topo e o formulário embaixo. As classes visuais compartilhadas ficam em `src/styles.scss`. O campo de senha do login e da coleta continua sendo o `app-keystroke-input` (RF08). Login por outras plataformas (Google, Facebook, GitHub, LinkedIn), recuperação de senha e campo de e-mail do modelo de referência ficam fora do escopo. O fluxo linear da seção 2 é mantido: o painel do cadastro não oferece atalho para o login. Os painéis do cadastro e do login exibem o nome do sistema, "Keystroke Dynamics Biometrics", e a página não tem cabeçalho no topo nem rodapé: só o cartão aparece sobre o fundo. A tela de acesso bloqueado (RF15) usa o mesmo cartão com o painel e o botão em vermelho (`#e05a5a`).
 
 ---
 
@@ -204,14 +209,15 @@ Quando o usuário conclui as 5 repetições na tela de coleta, o frontend envia 
 src/app/
 ├── core/
 │   ├── guards/
-│   │   └── auth.guard.ts             # Bloqueia /session sem sessão ativa e redireciona para /login
+│   │   ├── auth.guard.ts             # Bloqueia /session sem sessão ativa e redireciona para /login
+│   │   └── blocked-attempt.guard.ts  # Libera /blocked só depois de uma tentativa IMPOSTOR
 │   ├── models/
 │   │   ├── keystroke.model.ts        # Tipos para eventos, features H/DD/UD e amostras
 │   │   └── user.model.ts             # Modelos de usuário e autenticação
 │   └── services/
 │       ├── keystroke-capture.service.ts # Captura keydown/keyup e calcula H, DD, UD
 │       ├── biometric-api.service.ts     # Comunicação com endpoints /register, /enrollment, /authenticate
-│       └── auth.service.ts              # Registro da sessão autenticada (localStorage) e logout
+│       └── auth.service.ts              # Sessão autenticada (localStorage), logout e última tentativa bloqueada
 ├── features/
 │   ├── register/                     # Tela 1: Cadastro de usuário
 │   │   └── register.component.ts
@@ -219,7 +225,8 @@ src/app/
 │   │   └── enrollment.component.ts
 │   ├── login/                        # Tela 3: Login com autenticação biométrica
 │   │   └── login.component.ts
-│   └── session/                      # Tela 4: Área de sessão autenticada (rota /session)
+│   ├── session/                      # Tela 4: Área de sessão autenticada (rota /session)
+│   └── blocked/                      # Tela 5: Acesso bloqueado após decisão IMPOSTOR (rota /blocked)
 └── shared/
     └── components/
         └── keystroke-input/          # Input reutilizável com escuta de performance.now()
@@ -252,3 +259,6 @@ Este documento segue as diretrizes estabelecidas no [AGENTS.md](file:///Users/th
 | `1.8.0` | 2026-11-07 | Júlia Vital | Nova identidade visual (RNF10): cartão com formulário e painel azul deslizante, Poppins e Boxicons, sem login por outras plataformas. |
 | `1.8.1` | 2026-11-07 | Júlia Vital | Remoção do cabeçalho do topo e do rodapé; o nome do sistema passa a aparecer nos painéis do cadastro e do login (RNF10). |
 | `1.8.2` | 2026-11-07 | Júlia Vital | Remoção do atalho "Usar padrão CMU (.tie5Roanl)" da tela de cadastro (RF01). |
+| `1.9.0` | 2026-11-07 | Júlia Vital | Tela de acesso bloqueado após decisão IMPOSTOR, com painel vermelho, métricas da tentativa e botão "Tentar novamente" (RF15, RF16). |
+| `1.9.1` | 2026-11-07 | Júlia Vital | O painel azul da sessão autenticada passa para a direita e desliza ao entrar após o acesso permitido (RNF10). |
+| `1.10.0` | 2026-11-07 | Júlia Vital | Botão de voltar (ícone de seta) na tela de coleta, retornando ao cadastro (RF17). |

@@ -50,6 +50,13 @@ describe('SessionComponent', () => {
     expect(text).toContain('07/11/2026 21:30');
   });
 
+  it('should place the blue panel on the right so it slides in after the login', () => {
+    const container = element.querySelector('.container') as HTMLElement;
+
+    expect(container.classList).not.toContain('panel-left');
+    expect(container.classList).not.toContain('static');
+  });
+
   it('should hide session details when there is no session', () => {
     currentSession.set(null);
     fixture.detectChanges();

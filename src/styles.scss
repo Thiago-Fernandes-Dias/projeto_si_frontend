@@ -4,6 +4,8 @@
  */
 $brand-blue: #7494ec;
 $brand-blue-dark: #5b7ddc;
+$danger-red: #e05a5a;
+$danger-red-dark: #c84646;
 $text-color: #333;
 
 *, *::before, *::after {
@@ -114,18 +116,6 @@ code {
   margin-bottom: 12px;
 }
 
-.step-badge {
-  display: inline-block;
-  margin-bottom: 14px;
-  padding: 4px 12px;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
 /* Campo de texto com ícone à direita */
 .input-box {
   position: relative;
@@ -206,6 +196,55 @@ code {
 
   &:hover {
     background: rgba(255, 255, 255, 0.15);
+  }
+}
+
+/* Linhas de informação (sessão autenticada e acesso bloqueado) */
+.details-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 22px 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: #eee;
+    border-radius: 8px;
+    font-size: 14.5px;
+  }
+
+  i {
+    font-size: 20px;
+    color: $brand-blue;
+  }
+
+  strong {
+    margin-left: auto;
+  }
+}
+
+/* Variante vermelha (acesso bloqueado) */
+.container.danger {
+  .toggle-panel {
+    background: $danger-red;
+  }
+
+  .btn {
+    background: $danger-red;
+
+    &:hover:not(:disabled) {
+      background: $danger-red-dark;
+    }
+  }
+
+  .details-list i {
+    color: $danger-red;
   }
 }
 

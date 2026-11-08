@@ -78,7 +78,6 @@ import { BiometricApiService } from '../../core/services/biometric-api.service';
       </div>
 
       <div class="toggle-panel">
-        <span class="step-badge">Etapa 1 de 2</span>
         <i class="bx bxs-user-plus panel-icon" aria-hidden="true"></i>
         <h1>Keystroke Dynamics Biometrics</h1>
         <p>

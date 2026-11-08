@@ -15,13 +15,23 @@ import { EnrollmentPayload } from '../../core/models/keystroke.model';
     <div class="container static">
       <div class="form-box">
         <div>
+          <button
+            type="button"
+            class="back-button"
+            (click)="goBack()"
+            [disabled]="isSubmitting || submissionSuccess"
+            title="Voltar"
+            aria-label="Voltar para o cadastro"
+          >
+            <i class="bx bx-arrow-back" aria-hidden="true"></i>
+          </button>
+
           <h1>Coleta de Amostras</h1>
 
-          <div class="target-box">
-            <span class="target-label">Senha cadastrada para reprodução</span>
-            <span class="target-password-display">{{ targetPassword }}</span>
-            <span class="target-user-info">Usuário: <strong>{{ currentUsername }}</strong></span>
-          </div>
+          <p class="form-subtitle">
+            Senha cadastrada para reprodução: <strong>{{ targetPassword }}</strong><br />
+            Usuário: <strong>{{ currentUsername }}</strong>
+          </p>
 
           <div class="stepper-container">
             <div class="stepper-header">
@@ -78,7 +88,6 @@ import { EnrollmentPayload } from '../../core/models/keystroke.model';
       </div>
 
       <div class="toggle-panel">
-        <span class="step-badge">Etapa 2 de 2</span>
         <i class="bx bxs-keyboard panel-icon" aria-hidden="true"></i>
         <h1>Digite 5 vezes</h1>
         <p>
@@ -101,42 +110,52 @@ import { EnrollmentPayload } from '../../core/models/keystroke.model';
     </div>
   `,
   styles: [`
-    .target-box {
+    .back-button {
+      position: absolute;
+      top: 24px;
+      left: 24px;
       display: flex;
-      flex-direction: column;
-      gap: 2px;
-      margin: 18px 0;
-      padding: 14px;
-      background: #f3f5fd;
-      border: 1px dashed #b9c6f2;
-      border-radius: 12px;
-    }
-
-    .target-label {
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: #777;
-    }
-
-    .target-password-display {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      padding: 0;
+      background: #eee;
+      border: none;
+      border-radius: 50%;
+      color: #333;
       font-size: 22px;
-      font-weight: 700;
-      letter-spacing: 0.15em;
-      color: #4a6fd6;
+      cursor: pointer;
+      transition: background-color 0.2s, color 0.2s;
+
+      &:hover:not(:disabled) {
+        background: #dfe5f8;
+        color: #4a6fd6;
+      }
+
+      &:focus-visible {
+        outline: 2px solid #7494ec;
+        outline-offset: 2px;
+      }
+
+      &:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
     }
 
-    .target-user-info {
-      font-size: 13px;
-      color: #555;
+    @media screen and (max-width: 650px) {
+      .back-button {
+        top: 16px;
+        left: 16px;
+      }
     }
 
     .stepper-container {
       display: flex;
       flex-direction: column;
       gap: 8px;
-      margin-bottom: 18px;
+      margin: 18px 0;
     }
 
     .stepper-header {
@@ -257,6 +276,12 @@ export class EnrollmentComponent {
 
   get currentRepetition(): number {
     return this.userSession.currentRepetitionCount();
+  }
+
+  goBack(): void {
+    this.captureService.stopRecording();
+    this.captureService.reset();
+    this.router.navigate(['/register']);
   }
 
   onSampleSubmitted(enteredText: string): void {

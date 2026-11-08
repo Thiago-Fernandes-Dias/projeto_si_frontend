@@ -7,6 +7,7 @@ import { RouterTestingHarness } from '@angular/router/testing';
 import { routes } from './app.routes';
 import { AuthService } from './core/services/auth.service';
 import { SessionComponent } from './features/session/session.component';
+import { BlockedComponent } from './features/blocked/blocked.component';
 
 const SESSION_STORAGE_KEY = 'keystrokeAuthSession';
 
@@ -42,5 +43,34 @@ describe('app routes', () => {
 
     expect(TestBed.inject(Router).url).toBe('/session');
     expect(component).toBeInstanceOf(SessionComponent);
+  });
+
+  it('should redirect /blocked to /login when there is no blocked attempt', async () => {
+    const harness = await RouterTestingHarness.create();
+
+    await harness.navigateByUrl('/blocked');
+
+    expect(TestBed.inject(Router).url).toBe('/login');
+  });
+
+  it('should open /blocked after an IMPOSTOR decision', async () => {
+    TestBed.inject(AuthService).registerBlockedAttempt({
+      username: 's002_cmu',
+      result: {
+        decision: 'IMPOSTOR',
+        confidenceScore: 0.336,
+        thresholdScore: 0.75,
+        algorithm: 'RANDOM_FOREST_HPO',
+        inferenceTimeMs: 12.8,
+        message: 'Acesso bloqueado.',
+        attemptAverageHoldTimeMs: 207
+      }
+    });
+    const harness = await RouterTestingHarness.create();
+
+    const component = await harness.navigateByUrl('/blocked', BlockedComponent);
+
+    expect(TestBed.inject(Router).url).toBe('/blocked');
+    expect(component).toBeInstanceOf(BlockedComponent);
   });
 });

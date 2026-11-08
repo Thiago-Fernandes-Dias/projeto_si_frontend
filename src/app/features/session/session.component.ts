@@ -9,14 +9,14 @@ import { KeystrokeCaptureService } from '../../core/services/keystroke-capture.s
   standalone: true,
   imports: [DatePipe, PercentPipe],
   template: `
-    <div class="container panel-left static">
+    <div class="container">
       <div class="form-box">
         <div>
           <h1>Sessão autenticada</h1>
           <p class="form-subtitle">Você entrou com senha e dinâmica de digitação.</p>
 
           @if (authService.currentSession(); as session) {
-            <ul class="session-details">
+            <ul class="details-list">
               <li>
                 <i class="bx bxs-user" aria-hidden="true"></i>
                 <span>Usuário:</span>
@@ -48,37 +48,7 @@ import { KeystrokeCaptureService } from '../../core/services/keystroke-capture.s
         <p>Sua senha e o seu ritmo de digitação foram reconhecidos.</p>
       </div>
     </div>
-  `,
-  styles: [`
-    .session-details {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      margin: 22px 0;
-      padding: 0;
-      list-style: none;
-      text-align: left;
-
-      li {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 12px 16px;
-        background: #eee;
-        border-radius: 8px;
-        font-size: 14.5px;
-      }
-
-      i {
-        font-size: 20px;
-        color: #7494ec;
-      }
-
-      strong {
-        margin-left: auto;
-      }
-    }
-  `]
+  `
 })
 export class SessionComponent {
   readonly authService = inject(AuthService);

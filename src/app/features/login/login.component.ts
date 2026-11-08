@@ -258,6 +258,9 @@ export class LoginComponent implements OnInit {
               authenticatedAt: new Date().toISOString()
             });
             this.router.navigate(['/session']);
+          } else if (response.decision === 'IMPOSTOR') {
+            this.authService.registerBlockedAttempt({ username: this.username, result: response });
+            this.router.navigate(['/blocked']);
           }
         },
         error: () => {

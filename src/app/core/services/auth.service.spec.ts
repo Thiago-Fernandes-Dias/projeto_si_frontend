@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 
 import { AuthService } from './auth.service';
-import { AuthenticatedSession } from '../models/user.model';
+import { AuthenticatedSession, BlockedAttempt } from '../models/user.model';
 
 const SESSION_STORAGE_KEY = 'keystrokeAuthSession';
 
@@ -69,5 +69,45 @@ describe('AuthService', () => {
 
     expect(service.isAuthenticated()).toBeFalse();
     expect(service.currentSession()).toBeNull();
+  });
+
+  describe('blocked attempt', () => {
+    const blockedAttempt: BlockedAttempt = {
+      username: 's002_cmu',
+      result: {
+        decision: 'IMPOSTOR',
+        confidenceScore: 0.336,
+        thresholdScore: 0.75,
+        algorithm: 'RANDOM_FOREST_HPO',
+        inferenceTimeMs: 12.8,
+        message: 'Acesso bloqueado.',
+        attemptAverageHoldTimeMs: 207
+      }
+    };
+
+    it('should start without a blocked attempt', () => {
+      expect(createService().blockedAttempt()).toBeNull();
+    });
+
+    it('should register and clear a blocked attempt without touching storage', () => {
+      const service = createService();
+
+      service.registerBlockedAttempt(blockedAttempt);
+      expect(service.blockedAttempt()).toEqual(blockedAttempt);
+      expect(service.isAuthenticated()).toBeFalse();
+      expect(localStorage.getItem(SESSION_STORAGE_KEY)).toBeNull();
+
+      service.clearBlockedAttempt();
+      expect(service.blockedAttempt()).toBeNull();
+    });
+
+    it('should discard the blocked attempt when a session starts', () => {
+      const service = createService();
+      service.registerBlockedAttempt(blockedAttempt);
+
+      service.startSession(genuineSession);
+
+      expect(service.blockedAttempt()).toBeNull();
+    });
   });
 });

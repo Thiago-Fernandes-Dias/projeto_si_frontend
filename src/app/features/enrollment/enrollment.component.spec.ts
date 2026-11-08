@@ -49,6 +49,51 @@ describe('EnrollmentComponent', () => {
     expect(label?.textContent?.trim()).toBe('Digite sua senha e pressione Enter');
   });
 
+  it('deve mostrar a senha e o usuário como subtítulo, no mesmo estilo do cadastro', () => {
+    const element = fixture.nativeElement as HTMLElement;
+    const subtitle = element.querySelector('.form-box .form-subtitle');
+
+    expect(subtitle?.textContent).toContain('Senha cadastrada para reprodução: .tie5Roanl');
+    expect(subtitle?.textContent).toContain('Usuário: teste_user');
+    expect(element.querySelector('.target-box')).toBeNull();
+  });
+
+  describe('botão voltar', () => {
+    function backButton(): HTMLButtonElement {
+      return (fixture.nativeElement as HTMLElement).querySelector('.back-button') as HTMLButtonElement;
+    }
+
+    it('deve mostrar só o ícone de seta, com rótulo acessível', () => {
+      expect(backButton()).not.toBeNull();
+      expect(backButton().textContent?.trim()).toBe('');
+      expect(backButton().querySelector('i.bx-arrow-back')).not.toBeNull();
+      expect(backButton().getAttribute('aria-label')).toBe('Voltar para o cadastro');
+    });
+
+    it('deve encerrar a captura e voltar para /register', () => {
+      captureService.startRecording();
+      captureService.currentText.set('.tie');
+
+      backButton().click();
+
+      expect(captureService.isRecording()).toBeFalse();
+      expect(captureService.currentText()).toBe('');
+      expect(routerSpy.navigate).toHaveBeenCalledWith(['/register']);
+    });
+
+    it('deve ficar desabilitado depois que a coleta terminar', () => {
+      component.submissionSuccess = true;
+      fixture.detectChanges();
+
+      expect(backButton().disabled).toBeTrue();
+    });
+  });
+
+  it('não deve exibir o indicador de etapa no painel', () => {
+    const panel = (fixture.nativeElement as HTMLElement).querySelector('.toggle-panel');
+    expect(panel?.textContent).not.toContain('Etapa');
+  });
+
   it('deve rejeitar tentativa com senha divergente da cadastrada', () => {
     component.onSampleSubmitted('senha_errada');
     expect(component.validationError).toContain('Texto incorreto');
