@@ -32,7 +32,6 @@ describe('LoginComponent', () => {
       decision,
       confidenceScore,
       thresholdScore: 0.75,
-      algorithm: 'RANDOM_FOREST_HPO',
       inferenceTimeMs: 15,
       message: decision === 'GENUINE' ? 'Acesso Permitido' : 'Acesso Bloqueado'
     };

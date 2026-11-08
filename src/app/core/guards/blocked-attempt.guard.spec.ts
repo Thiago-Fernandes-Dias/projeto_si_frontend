@@ -30,7 +30,6 @@ describe('blockedAttemptGuard', () => {
         decision: 'IMPOSTOR',
         confidenceScore: 0.336,
         thresholdScore: 0.75,
-        algorithm: 'RANDOM_FOREST_HPO',
         inferenceTimeMs: 12.8,
         message: 'Acesso bloqueado.'
       }
