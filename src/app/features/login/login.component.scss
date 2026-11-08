@@ -1,0 +1,77 @@
+.keystroke-group {
+  margin: 0 0 22px;
+}
+
+.decision-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  text-align: left;
+
+  &.decision-allowed {
+    background: #e6f6ee;
+    color: #12633d;
+  }
+
+  &.decision-blocked {
+    background: #fdecec;
+    color: #9b1c1c;
+  }
+
+  &.decision-invalid {
+    background: #fff4dc;
+    color: #8a5300;
+  }
+}
+
+.decision-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  .decision-icon {
+    font-size: 30px;
+    flex-shrink: 0;
+  }
+
+  h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+
+  .decision-message {
+    margin: 2px 0 0;
+    font-size: 13px;
+    line-height: 1.4;
+  }
+}
+
+.decision-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px dashed currentColor;
+}
+
+.metric-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.metric-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.8;
+}
+
+.metric-value {
+  font-size: 16px;
+  font-weight: 700;
+}

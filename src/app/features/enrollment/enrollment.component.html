@@ -1,0 +1,96 @@
+<div class="container static">
+  <div class="form-box">
+    <div>
+      <button
+        type="button"
+        class="back-button"
+        (click)="goBack()"
+        [disabled]="isSubmitting || submissionSuccess"
+        title="Voltar"
+        aria-label="Voltar para o cadastro"
+      >
+        <i class="bx bx-arrow-back" aria-hidden="true"></i>
+      </button>
+
+      <h1>Coleta de Amostras</h1>
+
+      <p class="form-subtitle">
+        Senha cadastrada para reprodução: <strong>{{ targetPassword }}</strong><br />
+        Usuário: <strong>{{ currentUsername }}</strong>
+      </p>
+
+      <div class="stepper-container">
+        <div class="stepper-header">
+          <span>Progresso da coleta</span>
+          <strong>{{ currentRepetition }} de {{ totalRequiredRepetitions }} amostras</strong>
+        </div>
+        <div class="progress-track">
+          <div
+            class="progress-fill"
+            [style.width.%]="(currentRepetition / totalRequiredRepetitions) * 100"
+          ></div>
+        </div>
+        <div class="steps-indicators">
+          @for (step of steps; track step) {
+            <div
+              class="step-circle"
+              [class.completed]="step <= currentRepetition"
+              [class.active]="step === currentRepetition + 1"
+            >
+              @if (step <= currentRepetition) {
+                <i class="bx bx-check" aria-hidden="true"></i>
+              } @else {
+                {{ step }}
+              }
+            </div>
+          }
+        </div>
+      </div>
+
+      @if (validationError) {
+        <div class="alert alert-warning" role="alert">
+          <i class="bx bxs-error" aria-hidden="true"></i>
+          <span>{{ validationError }}</span>
+        </div>
+      }
+
+      @if (submissionSuccess) {
+        <div class="alert alert-success" role="status">
+          <i class="bx bxs-check-circle" aria-hidden="true"></i>
+          <span>Coleta de 5 amostras concluída com sucesso! Redirecionando para login...</span>
+        </div>
+      }
+
+      <div class="input-section">
+        <label>Digite sua senha e pressione Enter</label>
+        <app-keystroke-input
+          #keystrokeInput
+          [disabled]="isSubmitting || submissionSuccess"
+          placeholder="Digite a senha e tecle Enter..."
+          (textSubmitted)="onSampleSubmitted($event)"
+        ></app-keystroke-input>
+      </div>
+    </div>
+  </div>
+
+  <div class="toggle-panel">
+    <i class="bx bxs-keyboard panel-icon" aria-hidden="true"></i>
+    <h1>Digite 5 vezes</h1>
+    <p>
+      Para calibrar seu perfil biométrico com alta acurácia, digite sua senha exatamente
+      <strong>5 vezes</strong> consecutivas no ritmo natural em que você costuma teclar.
+    </p>
+
+    <div class="guidelines">
+      <h4>Diretrizes de qualidade biométrica</h4>
+      <ul>
+        <li>Mantenha as duas mãos no teclado e digite no seu ritmo habitual.</li>
+        <li>
+          <strong>Não use Backspace ou Delete:</strong> se errar uma tecla, o campo reinicia
+          automaticamente para não distorcer as latências H, DD e UD.
+        </li>
+        <li>Colar a senha (<em>Paste</em>) é estritamente proibido.</li>
+      </ul>
+    </div>
+  </div>
+</div>

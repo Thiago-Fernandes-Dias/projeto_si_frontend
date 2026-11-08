@@ -1,5 +1,5 @@
 import { Injectable, signal, computed } from '@angular/core';
-import { KeystrokeSample, MachineLearningAlgorithm } from '../models/keystroke.model';
+import { KeystrokeSample } from '../models/keystroke.model';
 import { RegisteredUser } from '../models/user.model';
 
 @Injectable({
@@ -16,7 +16,6 @@ export class UserSessionService {
   });
 
   readonly currentUser = computed(() => this.targetUser());
-  readonly selectedAlgorithm = signal<MachineLearningAlgorithm>('RANDOM_FOREST_HPO');
   readonly enrollmentSamples = signal<KeystrokeSample[]>([]);
 
   readonly currentRepetitionCount = computed(() => this.enrollmentSamples().length);
@@ -57,9 +56,5 @@ export class UserSessionService {
         enrollmentSamples: []
       });
     }
-  }
-
-  setAlgorithm(algorithm: MachineLearningAlgorithm): void {
-    this.selectedAlgorithm.set(algorithm);
   }
 }

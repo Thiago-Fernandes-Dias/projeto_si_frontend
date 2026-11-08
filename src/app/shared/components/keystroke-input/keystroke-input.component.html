@@ -1,0 +1,50 @@
+<div class="keystroke-input-wrapper">
+  <div class="input-container" [class.recording]="captureService.isRecording()">
+    <input
+      #inputElement
+      [type]="showPassword ? 'text' : 'password'"
+      [placeholder]="placeholder"
+      [disabled]="disabled"
+      [value]="captureService.currentText()"
+      (keydown)="onKeyDown($event)"
+      (keyup)="onKeyUp($event)"
+      (paste)="onPaste($event)"
+      (focus)="onFocus()"
+      autocomplete="new-password"
+      autocorrect="off"
+      autocapitalize="off"
+      spellcheck="false"
+      class="keystroke-field"
+    />
+    <button
+      type="button"
+      class="visibility-toggle-button"
+      (click)="toggleVisibility()"
+      [title]="showPassword ? 'Ocultar senha' : 'Ver senha'"
+      [attr.aria-label]="showPassword ? 'Ocultar senha' : 'Ver senha'"
+    >
+      <i
+        class="bx"
+        [class.bx-show]="showPassword"
+        [class.bx-hide]="!showPassword"
+        aria-hidden="true"
+      ></i>
+    </button>
+  </div>
+
+  <div class="meta-row">
+    <span class="keystroke-badge" [class.active]="captureService.isRecording()">
+      {{ captureService.isRecording() ? '● Captura Ativa' : '○ Aguardando Foco' }}
+    </span>
+    <span class="key-count">
+      Caracteres: {{ captureService.currentText().length }}
+    </span>
+  </div>
+
+  @if (captureService.lastAnomaly(); as anomaly) {
+    <div class="anomaly-alert" role="alert">
+      <i class="bx bxs-error-circle" aria-hidden="true"></i>
+      <span>{{ anomaly }}</span>
+    </div>
+  }
+</div>

@@ -73,7 +73,6 @@ export class BiometricApiService {
       decision,
       confidenceScore,
       thresholdScore: 0.75,
-      algorithm: payload.selectedAlgorithm,
       inferenceTimeMs: 14.2,
       message:
         decision === 'GENUINE'

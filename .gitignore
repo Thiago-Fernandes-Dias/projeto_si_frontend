@@ -49,3 +49,7 @@ __pycache__/
 .venv/
 venv/
 
+# Unversioned local docs
+coleta_amostras.md
+
+

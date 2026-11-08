@@ -1,4 +1,6 @@
 import { Routes } from '@angular/router';
+import { authGuard } from './core/guards/auth.guard';
+import { blockedAttemptGuard } from './core/guards/blocked-attempt.guard';
 
 export const routes: Routes = [
   {
@@ -23,6 +25,20 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/login/login.component').then((m) => m.LoginComponent),
     title: 'Login Biométrico - Keystroke Biometrics'
+  },
+  {
+    path: 'session',
+    loadComponent: () =>
+      import('./features/session/session.component').then((m) => m.SessionComponent),
+    canActivate: [authGuard],
+    title: 'Sessão Autenticada - Keystroke Biometrics'
+  },
+  {
+    path: 'blocked',
+    loadComponent: () =>
+      import('./features/blocked/blocked.component').then((m) => m.BlockedComponent),
+    canActivate: [blockedAttemptGuard],
+    title: 'Acesso Bloqueado - Keystroke Biometrics'
   },
   {
     path: '**',

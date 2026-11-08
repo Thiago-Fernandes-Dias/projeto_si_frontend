@@ -12,7 +12,6 @@ describe('UserSessionService', () => {
 
   it('deve inicializar com usuário padrão de demonstração', () => {
     expect(service.currentUser()).not.toBeNull();
-    expect(service.selectedAlgorithm()).toBe('RANDOM_FOREST_HPO');
   });
 
   it('deve cadastrar um novo usuário e reiniciar as repetições', () => {
@@ -44,10 +43,5 @@ describe('UserSessionService', () => {
     expect(service.currentRepetitionCount()).toBe(5);
     expect(service.isEnrollmentComplete()).toBeTrue();
     expect(service.currentUser()?.isEnrolled).toBeTrue();
-  });
-
-  it('deve atualizar o algoritmo selecionado', () => {
-    service.setAlgorithm('KNN_HPO');
-    expect(service.selectedAlgorithm()).toBe('KNN_HPO');
   });
 });
