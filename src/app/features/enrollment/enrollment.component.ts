@@ -80,6 +80,12 @@ export class EnrollmentComponent {
     }
   }
 
+  goToLogin(): void {
+    this.captureService.stopRecording();
+    this.captureService.reset();
+    this.router.navigate(['/login']);
+  }
+
   private submitAllSamples(): void {
     this.isSubmitting = true;
     const samples = this.userSession.enrollmentSamples();
@@ -95,16 +101,10 @@ export class EnrollmentComponent {
       next: () => {
         this.isSubmitting = false;
         this.submissionSuccess = true;
-        setTimeout(() => {
-          this.router.navigate(['/login']);
-        }, 1500);
       },
       error: () => {
         this.isSubmitting = false;
         this.submissionSuccess = true;
-        setTimeout(() => {
-          this.router.navigate(['/login']);
-        }, 1500);
       }
     });
   }

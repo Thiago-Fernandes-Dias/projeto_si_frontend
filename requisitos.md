@@ -30,7 +30,7 @@ Este documento detalha os requisitos funcionais, não-funcionais, arquiteturais 
 
 1. **Cadastro:** O usuário preenche seus dados (nome/identificador e define sua senha).
 2. **Coleta de Amostras (Enrollment):** O usuário é automaticamente direcionado para a tela de coleta, onde deve digitar a senha cadastrada exatamente **5 vezes**.
-3. **Envio e Calibração:** Ao atingir as 5 repetições válidas, o frontend computa os vetores temporais e os transmite ao backend para treinamento do classificador individual.
+3. **Envio e Calibração:** Ao atingir as 5 repetições válidas, o frontend computa os vetores temporais e os transmite ao backend para treinamento do classificador individual. Concluído o envio das 5 amostras, o campo de senha permanece bloqueado e a interface exibe um botão para que o usuário avance manualmente para a tela de login.
 4. **Autenticação:** O usuário realiza login digitando sua credencial; o frontend extrai o vetor biométrico da tentativa e consulta o modelo no backend para autorizar ou bloquear a sessão. O fluxo é linear e guiado, sem menu de navegação aberto.
 
 ---
@@ -42,11 +42,11 @@ Este documento detalha os requisitos funcionais, não-funcionais, arquiteturais 
 - **RF02 - Redirecionamento Automático:** Concluída a validação textual do cadastro com sucesso, o sistema deve direcionar o usuário imediatamente para a tela de coleta de amostras de digitação.
 
 ### 3.2. Coleta de Amostras de Digitação (*Enrollment*)
-- **RF03 - Coleta de Exatamente 5 Amostras:** A tela de coleta deve exigir a digitação da senha escolhida por exatamente **5 vezes** válidas. Ao concluir a 5ª repetição, a coleta é encerrada imediatamente, ocultando o campo de entrada e impedindo qualquer solicitação de repetições adicionais (como uma 6ª amostra).
+- **RF03 - Coleta de Exatamente 5 Amostras:** A tela de coleta deve exigir a digitação da senha escolhida por exatamente **5 vezes** válidas. Ao concluir a 5ª repetição, a coleta é encerrada imediatamente, bloqueando o campo de entrada para novas digitações e impedindo a solicitação de repetições adicionais (como uma 6ª amostra).
 - **RF04 - Feedback e Progresso Visual:** O sistema deve informar o progresso em tempo real (ex.: *"Amostra 1 de 5"*, *"Amostra 2 de 5"*), limpando o campo de entrada automaticamente a cada repetição concluída com sucesso.
 - **RF05 - Validação Textual e Descarte de Inconsistências:** A amostra só é contabilizada se o texto digitado corresponder exatamente à senha escolhida no cadastro. Se houver discrepância de caracteres, a amostra é descartada com aviso instrutivo ao usuário.
 - **RF06 - Invalidação por Correção ou Colagem:** Caso o usuário pressione teclas de correção (*Backspace*, *Delete*) ou realize colagem (*Paste*), o campo é limpo e a repetição atual deve ser reiniciada, assegurando a pureza do fluxo temporal.
-- **RF07 - Submissão do Lote de Treinamento:** Ao atingir a 5ª repetição válida, o frontend monta o pacote com as 5 amostras temporais e dispara a requisição HTTP POST para a API backend.
+- **RF07 - Submissão do Lote de Treinamento e Avanço Manual:** Ao atingir a 5ª repetição válida, o frontend monta o pacote com as 5 amostras temporais e dispara a requisição HTTP POST para a API backend. Concluída a submissão, a interface mantém o campo de senha bloqueado e exibe um botão para prosseguir ao login, ocorrendo a navegação para a tela de autenticação exclusivamente após o clique do usuário nesse botão (sem redirecionamento automático).
 - **RF17 - Voltar ao Cadastro:** A tela de coleta oferece um botão de voltar identificado apenas por um ícone de seta (com rótulo acessível "Voltar para o cadastro"), que encerra a captura em andamento, apaga o texto digitado e retorna à tela de cadastro. O botão fica desabilitado durante o envio do lote e depois da conclusão da coleta.
 
 ### 3.3. Captura e Extração de Características
@@ -245,23 +245,22 @@ docker-compose.yml                    # Orquestração multi-container do fronte
 
 Este documento segue as diretrizes estabelecidas no [AGENTS.md](file:///Users/thiago/Repositories/projeto_si_frontend/AGENTS.md) e deve ser atualizado obrigatoriamente a cada nova solicitação de funcionalidade ou alteração de escopo.
 
-| Versão | Data | Autor / Agente | Descrição das Modificações |
-|---|---|---|---|
-| `1.0.0` | 2026-11-07 | Thiago Dias / Antigravity | Versão inicial dos requisitos de Keystroke Dynamics e arquitetura Angular. |
-| `1.1.0` | 2026-11-07 | Thiago Dias / Antigravity | Integração do fluxo de cadastro com coleta de 5 amostras obrigatórias, mapeamento do benchmark CMU (`DSL-StrongPasswordData.csv`), definição do payload JSON e governança via `AGENTS.md`. |
-| `1.2.0` | 2026-11-07 | Thiago Dias / Antigravity | Inclusão dos requisitos de infraestrutura: Dockerfile (containerização) e Makefile para automação de build, testes e execução em modo de desenvolvimento. |
-| `1.3.0` | 2026-11-07 | Thiago Dias / Antigravity | Simplificação de interface: remoção da Dashboard, remoção dos links da barra de navegação global (fluxo linear guiado Cadastro -> Coleta -> Login) e remoção da escolha manual de algoritmos na tela de login. |
-| `1.4.0` | 2026-11-07 | Thiago Dias / Antigravity | Criação da Mock API em Python/Flask na pasta dedicada `mock_api/` e configuração de proxy no frontend Angular para resolução de chamadas `/api/*`. |
-| `1.5.0` | 2026-11-07 | Thiago Dias / Antigravity | Remoção de qualquer menção ou endpoint de listagem de algoritmos na Mock API e no serviço do frontend. |
-| `1.6.0` | 2026-11-07 | Thiago Dias / Antigravity | Orquestração multi-container com Docker Compose (`docker-compose.yml`), containerização da Mock API com `mock_api/Dockerfile` e integração Nginx apontando para `http://mock-api:5000`. |
-| `1.7.0` | 2026-11-07 | Júlia Vital | Inclusão de sessão autenticada com rota protegida por guard e logout (RF13, RF14). |
-| `1.7.1` | 2026-11-07 | Júlia Vital | O botão "Sair" passa a apagar a senha digitada e encerrar a captura de digitação (RF14). |
-| `1.8.0` | 2026-11-07 | Júlia Vital | Nova identidade visual (RNF10): cartão com formulário e painel azul deslizante, Poppins e Boxicons, sem login por outras plataformas. |
-| `1.8.1` | 2026-11-07 | Júlia Vital | Remoção do cabeçalho do topo e do rodapé; o nome do sistema passa a aparecer nos painéis do cadastro e do login (RNF10). |
-| `1.8.2` | 2026-11-07 | Júlia Vital | Remoção do atalho "Usar padrão CMU (.tie5Roanl)" da tela de cadastro (RF01). |
-| `1.9.0` | 2026-11-07 | Júlia Vital | Tela de acesso bloqueado após decisão IMPOSTOR, com painel vermelho, métricas da tentativa e botão "Tentar novamente" (RF15, RF16). |
-| `1.9.1` | 2026-11-07 | Júlia Vital | O painel azul da sessão autenticada passa para a direita e desliza ao entrar após o acesso permitido (RNF10). |
-| `1.10.0` | 2026-11-07 | Júlia Vital | Botão de voltar (ícone de seta) na tela de coleta, retornando ao cadastro (RF17). |
-| `1.11.0` | 2026-11-08 | Thiago Dias / Antigravity | Adição da funcionalidade de ocultar/exibir o texto nos campos de senha na tela de cadastro (RF01). |
-| `1.11.1` | 2026-11-08 | Thiago Dias / Antigravity | Padronização dos botões de alternância de senha para uso exclusivo de ícones de olho (`bx-show` e `bx-hide`), eliminando cadeados (RF01, RNF10). |
-| `1.12.0` | 2026-11-08 | Thiago Dias / Antigravity | Refatoração arquitetural dos componentes de interface: separação modular em arquivos dedicados (`.html`, `.scss`, `.ts`) (RNF05). |
+| Versão | Data | Autor / Agente | Commit | Descrição das Modificações |
+|---|---|---|---|---|
+| `1.0.0` | 2026-11-07 | Thiago Dias / Antigravity | `6fc6613` | Criação da especificação de requisitos do sistema (`requisitos.md`) e das diretrizes de governança técnica para agentes de IA (`AGENTS.md`). |
+| `1.1.0` | 2026-11-07 | Thiago Dias / Antigravity | `88512f4` | Implementação inicial do frontend Angular 18 para autenticação por dinâmica de digitação: formulário de cadastro (RF01, RF02), coleta guiada de 5 amostras baseada no benchmark CMU (`DSL-StrongPasswordData.csv`) (RF03-RF07), captura temporal de alta precisão via `performance.now()` (RF08, RF09, RNF01) e inferência de login (RF10-RF12). |
+| `1.2.0` | 2026-11-07 | Thiago Dias / Antigravity | `9a95a1c` | Inclusão dos requisitos de infraestrutura e automação: `Dockerfile` multi-stage com Nginx (RNF06), automação via `Makefile` (RNF07) para build, testes e execução local, e documentação no README. |
+| `1.3.0` | 2026-11-07 | Thiago Dias / Antigravity | `6689264` | Simplificação da jornada do usuário: remoção da Dashboard e dos links abertos de navegação global (fluxo linear obrigatório Cadastro → Coleta → Login) e remoção da seleção manual de algoritmos na tela de login (RF10). |
+| `1.4.0` | 2026-11-07 | Thiago Dias / Antigravity | `2d2804c` | Disponibilização do servidor Mock API em Python/Flask na pasta `mock_api/` (RNF08) para simulação dos endpoints biométricos (`/api/register`, `/api/enrollment`, `/api/authenticate`) e configuração de proxy no Angular CLI (`proxy.conf.json`). |
+| `1.5.0` | 2026-11-07 | Thiago Dias / Antigravity | `c537bad` | Remoção do endpoint e dos métodos de consulta/listagem de algoritmos na Mock API e no serviço `BiometricApiService`. |
+| `1.5.1` | 2026-11-07 | Thiago Dias / Antigravity | `4d788b7` | Ajuste no fluxo de coleta de amostras (RF03): encerramento imediato e estrito após a conclusão da 5ª repetição válida, ocultando o campo de entrada e bloqueando repetições excedentes. |
+| `1.5.2` | 2026-11-07 | Thiago Dias / Antigravity | `d16c355` | Refatoração visual para remoção de menções técnicas explícitas a `performance.now()` nos templates das telas de cadastro e coleta. |
+| `1.5.3` | 2026-11-07 | Thiago Dias / Antigravity | `9d42da0` | Configuração de tipagem Jasmine no `tsconfig.json` e atualização das regras do `.gitignore`. |
+| `1.6.0` | 2026-11-07 | Thiago Dias / Antigravity | `d647637` | Remoção dos tipos e referências a algoritmos de Machine Learning (`MachineLearningAlgorithm`) nos modelos e serviços do frontend, consolidando a classificação direta (RF10). |
+| `1.7.0` | 2026-11-07 | Thiago Dias / Antigravity | `41b2337` | Orquestração multi-container com Docker Compose (`docker-compose.yml`, RNF09), containerização da Mock API (`mock_api/Dockerfile`) e proxy reverso no Nginx com healthcheck e rede dedicada. |
+| `1.8.0` | 2026-11-07 | Júlia Vital | `51aae96` | Implementação de sessão autenticada persistida e rota `/session` protegida por `authGuard` (RF13); botão "Sair" com limpeza de senha e cancelamento de captura (RF14); nova identidade visual com cartão central dividido e painel azul deslizante (RNF10); e remoção do atalho para senha padrão CMU no cadastro (RF01). |
+| `1.9.0` | 2026-11-07 | Júlia Vital | `4e0aadb` | Criação da tela de acesso bloqueado (`/blocked`) com painel vermelho e métricas da tentativa para decisões IMPOSTOR protegida por `blockedAttemptGuard` (RF15); botão "Tentar novamente" (RF16); e botão de voltar (ícone de seta) na tela de coleta retornando ao cadastro (RF17). |
+| `1.9.1` | 2026-11-08 | Thiago Dias / Antigravity | `3aa77e7` | Correção de compatibilidade na suíte de testes unitários pós-merge: remoção da propriedade obsoleta `algorithm` nos objetos de teste de autenticação em 5 arquivos `.spec.ts`. |
+| `1.10.0` | 2026-11-08 | Thiago Dias / Antigravity | `0cc7dc3` | Adição da funcionalidade de ocultar o texto escrito nos campos de senha por padrão (`type="password"`), com botões de alternância de visibilidade utilizando exclusivamente ícones de olho (`bx-show` e `bx-hide`) na tela de cadastro e no componente biométrico (RF01, RNF10). |
+| `1.11.0` | 2026-11-08 | Thiago Dias / Antigravity | `eb9025c` | Refatoração arquitetural dos componentes de interface (RNF05): desacoplamento modular de templates (`*.component.html`), estilos (`*.component.scss`) e classes controladoras (`*.component.ts`), utilizando `templateUrl` e `styleUrl`. |
+| `1.12.0` | 2026-11-08 | Thiago Dias / Antigravity | - | Exibição de botão para avançar manualmente ao login após as 5 repetições da coleta (RF03, RF07) com bloqueio do campo de senha, eliminando o redirecionamento automático. |

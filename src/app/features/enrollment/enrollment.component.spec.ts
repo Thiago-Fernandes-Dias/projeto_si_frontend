@@ -115,7 +115,7 @@ describe('EnrollmentComponent', () => {
     expect(component.validationError).toBeNull();
   });
 
-  it('deve submeter lote de 5 amostras e redirecionar para /login ao atingir a 5ª repetição', fakeAsync(() => {
+  it('deve submeter lote de 5 amostras, exibir botão de prosseguir e bloquear o campo de senha sem redirecionamento automático', () => {
     spyOn(captureService, 'computeSample').and.callFake((rep: number) => ({
       repetition: rep,
       textEntered: '.tie5Roanl',
@@ -130,12 +130,24 @@ describe('EnrollmentComponent', () => {
 
     expect(biometricApiSpy.submitEnrollment).toHaveBeenCalled();
     expect(component.submissionSuccess).toBeTrue();
+    expect(routerSpy.navigate).not.toHaveBeenCalled();
 
-    tick(1500);
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const proceedButton = element.querySelector<HTMLButtonElement>('.proceed-button');
+    const inputElement = element.querySelector<HTMLInputElement>('.keystroke-field');
+
+    expect(proceedButton).not.toBeNull();
+    expect(proceedButton?.textContent).toContain('Prosseguir para o login');
+    expect(inputElement?.disabled).toBeTrue();
+
+    // Navegação só deve ocorrer após o clique no botão
+    proceedButton?.click();
     expect(routerSpy.navigate).toHaveBeenCalledWith(['/login']);
-  }));
+  });
 
-  it('não deve solicitar ou permitir a coleta de uma 6ª amostra', fakeAsync(() => {
+  it('não deve solicitar ou permitir a coleta de uma 6ª amostra', () => {
     spyOn(captureService, 'computeSample').and.callFake((rep: number) => ({
       repetition: rep,
       textEntered: '.tie5Roanl',
@@ -154,7 +166,5 @@ describe('EnrollmentComponent', () => {
     // Tentativa de submeter uma 6ª amostra
     component.onSampleSubmitted('.tie5Roanl');
     expect(component.currentRepetition).toBe(5);
-
-    tick(1500);
-  }));
+  });
 });
