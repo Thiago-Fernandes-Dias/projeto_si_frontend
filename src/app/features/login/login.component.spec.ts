@@ -1,20 +1,45 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { LoginComponent } from './login.component';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import { UserSessionService } from '../../core/services/user-session.service';
 import { KeystrokeCaptureService } from '../../core/services/keystroke-capture.service';
 import { BiometricApiService } from '../../core/services/biometric-api.service';
+import { AuthService } from '../../core/services/auth.service';
 import { of } from 'rxjs';
-import { AuthenticationResponse } from '../../core/models/keystroke.model';
+import { AuthenticationResponse, KeystrokeSample } from '../../core/models/keystroke.model';
+
+const SESSION_STORAGE_KEY = 'keystrokeAuthSession';
 
 describe('LoginComponent', () => {
   let component: LoginComponent;
   let fixture: ComponentFixture<LoginComponent>;
   let userSession: UserSessionService;
   let captureService: KeystrokeCaptureService;
+  let authService: AuthService;
+  let router: Router;
   let biometricApiSpy: jasmine.SpyObj<BiometricApiService>;
 
+  const capturedSample: KeystrokeSample = {
+    repetition: 1,
+    textEntered: '.tie5Roanl',
+    features: { 'H.period': 0.14 },
+    rawTimings: [{ key: '.', code: 'Period', pressTime: 100, releaseTime: 240 }],
+    totalDurationMs: 140
+  };
+
+  function buildResponse(decision: AuthenticationResponse['decision'], confidenceScore: number): AuthenticationResponse {
+    return {
+      decision,
+      confidenceScore,
+      thresholdScore: 0.75,
+      algorithm: 'RANDOM_FOREST_HPO',
+      inferenceTimeMs: 15,
+      message: decision === 'GENUINE' ? 'Acesso Permitido' : 'Acesso Bloqueado'
+    };
+  }
+
   beforeEach(async () => {
+    localStorage.removeItem(SESSION_STORAGE_KEY);
     biometricApiSpy = jasmine.createSpyObj('BiometricApiService', ['authenticate']);
 
     await TestBed.configureTestingModule({
@@ -29,9 +54,16 @@ describe('LoginComponent', () => {
     component = fixture.componentInstance;
     userSession = TestBed.inject(UserSessionService);
     captureService = TestBed.inject(KeystrokeCaptureService);
+    authService = TestBed.inject(AuthService);
+    router = TestBed.inject(Router);
+    spyOn(router, 'navigate').and.resolveTo(true);
 
     userSession.registerUser('usuario_teste', '.tie5Roanl');
     fixture.detectChanges();
+  });
+
+  afterEach(() => {
+    localStorage.removeItem(SESSION_STORAGE_KEY);
   });
 
   it('deve criar o componente de login', () => {
@@ -39,36 +71,43 @@ describe('LoginComponent', () => {
     expect(component.username).toBe('usuario_teste');
   });
 
+  it('deve exibir o nome do sistema no painel azul', () => {
+    const panel = (fixture.nativeElement as HTMLElement).querySelector('.toggle-panel');
+    expect(panel?.querySelector('h1')?.textContent).toContain('Keystroke Dynamics Biometrics');
+  });
+
   it('deve marcar INVALID_CREDENTIALS quando a senha textual for incorreta', () => {
     component.onPasswordSubmitted('senha_errada');
 
     expect(component.authResult).not.toBeNull();
     expect(component.authResult?.decision).toBe('INVALID_CREDENTIALS');
+    expect(authService.isAuthenticated()).toBeFalse();
+    expect(router.navigate).not.toHaveBeenCalled();
   });
 
-  it('deve chamar API e exibir resultado GENUINE quando autenticado com sucesso', () => {
-    const mockAuthResponse: AuthenticationResponse = {
-      decision: 'GENUINE',
-      confidenceScore: 0.94,
-      thresholdScore: 0.75,
-      algorithm: 'RANDOM_FOREST_HPO',
-      inferenceTimeMs: 15,
-      message: 'Acesso Permitido'
-    };
-    biometricApiSpy.authenticate.and.returnValue(of(mockAuthResponse));
-
-    spyOn(captureService, 'computeSample').and.returnValue({
-      repetition: 1,
-      textEntered: '.tie5Roanl',
-      features: { 'H.period': 0.14 },
-      rawTimings: [{ key: '.', code: 'Period', pressTime: 100, releaseTime: 240 }],
-      totalDurationMs: 140
-    });
+  it('deve abrir a sessão e navegar para /session quando a decisão for GENUINE', () => {
+    biometricApiSpy.authenticate.and.returnValue(of(buildResponse('GENUINE', 0.94)));
+    spyOn(captureService, 'computeSample').and.returnValue(capturedSample);
 
     component.onPasswordSubmitted('.tie5Roanl');
 
     expect(biometricApiSpy.authenticate).toHaveBeenCalled();
     expect(component.authResult?.decision).toBe('GENUINE');
     expect(component.authResult?.confidenceScore).toBe(0.94);
+    expect(authService.isAuthenticated()).toBeTrue();
+    expect(authService.currentSession()?.username).toBe('usuario_teste');
+    expect(authService.currentSession()?.confidenceScore).toBe(0.94);
+    expect(router.navigate).toHaveBeenCalledWith(['/session']);
+  });
+
+  it('não deve abrir sessão nem navegar quando a decisão for IMPOSTOR', () => {
+    biometricApiSpy.authenticate.and.returnValue(of(buildResponse('IMPOSTOR', 0.42)));
+    spyOn(captureService, 'computeSample').and.returnValue(capturedSample);
+
+    component.onPasswordSubmitted('.tie5Roanl');
+
+    expect(component.authResult?.decision).toBe('IMPOSTOR');
+    expect(authService.isAuthenticated()).toBeFalse();
+    expect(router.navigate).not.toHaveBeenCalled();
   });
 });

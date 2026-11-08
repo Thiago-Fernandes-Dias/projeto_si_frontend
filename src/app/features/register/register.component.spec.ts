@@ -35,10 +35,20 @@ describe('RegisterComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('deve preencher o padrão CMU com o botão de atalho', () => {
-    component.useBenchmarkPassword();
-    expect(component.password).toBe('.tie5Roanl');
-    expect(component.confirmPassword).toBe('.tie5Roanl');
+  it('deve exibir o nome do sistema no painel azul', () => {
+    const panel = (fixture.nativeElement as HTMLElement).querySelector('.toggle-panel');
+    expect(panel?.querySelector('h1')?.textContent).toContain('Keystroke Dynamics Biometrics');
+  });
+
+  it('deve mostrar "Usuário" como dica no campo de identificador', () => {
+    const usernameInput = (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>('#username');
+    expect(usernameInput?.placeholder).toBe('Usuário');
+  });
+
+  it('não deve oferecer atalho para preencher a senha padrão do CMU', () => {
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.textContent).not.toContain('padrão CMU');
+    expect(element.querySelectorAll('button').length).toBe(1);
   });
 
   it('deve validar campos vazios e senhas divergentes', () => {

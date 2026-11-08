@@ -13,3 +13,9 @@ export interface RegistrationRequest {
   targetPassword: string;
   confirmPassword: string;
 }
+
+export interface AuthenticatedSession {
+  username: string;
+  confidenceScore: number;
+  authenticatedAt: string;
+}

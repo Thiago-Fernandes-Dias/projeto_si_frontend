@@ -38,8 +38,14 @@ import { KeystrokeCaptureService } from '../../../core/services/keystroke-captur
           class="visibility-toggle-button"
           (click)="toggleVisibility()"
           [title]="showPassword ? 'Ocultar senha' : 'Ver senha'"
+          [attr.aria-label]="showPassword ? 'Ocultar senha' : 'Ver senha'"
         >
-          {{ showPassword ? '👁️' : '🔒' }}
+          <i
+            class="bx"
+            [class.bx-show]="showPassword"
+            [class.bxs-lock-alt]="!showPassword"
+            aria-hidden="true"
+          ></i>
         </button>
       </div>
 
@@ -54,7 +60,8 @@ import { KeystrokeCaptureService } from '../../../core/services/keystroke-captur
 
       @if (captureService.lastAnomaly(); as anomaly) {
         <div class="anomaly-alert" role="alert">
-          ⚠️ {{ anomaly }}
+          <i class="bx bxs-error-circle" aria-hidden="true"></i>
+          <span>{{ anomaly }}</span>
         </div>
       }
     </div>
@@ -63,49 +70,60 @@ import { KeystrokeCaptureService } from '../../../core/services/keystroke-captur
     .keystroke-input-wrapper {
       display: flex;
       flex-direction: column;
-      gap: 0.5rem;
+      gap: 6px;
       width: 100%;
+      text-align: left;
     }
 
     .input-container {
       position: relative;
       display: flex;
       align-items: center;
-      border: 2px solid #cbd5e1;
-      border-radius: 0.5rem;
-      background: #ffffff;
-      transition: all 0.2s ease-in-out;
+      background: #eee;
+      border-radius: 8px;
+      transition: box-shadow 0.2s ease-in-out;
 
       &.recording {
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        box-shadow: 0 0 0 2px #7494ec;
       }
     }
 
     .keystroke-field {
+      flex: 1;
       width: 100%;
-      padding: 0.75rem 1rem;
-      font-size: 1rem;
-      font-family: monospace;
-      letter-spacing: 0.1em;
-      border: none;
-      outline: none;
-      border-radius: 0.5rem;
+      padding: 13px 8px 13px 20px;
       background: transparent;
+      border: none;
+      border-radius: 8px;
+      outline: none;
+      color: #333;
+      font-family: inherit;
+      font-size: 16px;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+
+      &::placeholder {
+        color: #888;
+        font-weight: 400;
+        letter-spacing: normal;
+      }
 
       &:disabled {
-        background-color: #f1f5f9;
         cursor: not-allowed;
+        opacity: 0.6;
       }
     }
 
     .visibility-toggle-button {
+      display: flex;
+      align-items: center;
+      padding: 0 20px 0 8px;
       background: none;
       border: none;
-      padding: 0.5rem 0.75rem;
+      color: #555;
+      font-size: 20px;
       cursor: pointer;
-      font-size: 1.1rem;
-      opacity: 0.7;
+      opacity: 0.8;
       transition: opacity 0.2s;
 
       &:hover {
@@ -117,33 +135,41 @@ import { KeystrokeCaptureService } from '../../../core/services/keystroke-captur
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 0.8rem;
-      color: #64748b;
+      font-size: 12px;
+      color: #777;
     }
 
     .keystroke-badge {
       display: inline-flex;
       align-items: center;
-      gap: 0.25rem;
-      color: #64748b;
+      gap: 4px;
       font-weight: 500;
 
       &.active {
-        color: #16a34a;
+        color: #4a6fd6;
       }
     }
 
     .key-count {
-      font-family: monospace;
+      font-variant-numeric: tabular-nums;
     }
 
     .anomaly-alert {
-      padding: 0.5rem 0.75rem;
-      background-color: #fef2f2;
-      border: 1px solid #fecaca;
-      color: #991b1b;
-      font-size: 0.85rem;
-      border-radius: 0.375rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      padding: 8px 12px;
+      background: #fdecec;
+      color: #9b1c1c;
+      font-size: 13px;
+      line-height: 1.4;
+      border-radius: 8px;
+
+      i {
+        flex-shrink: 0;
+        font-size: 16px;
+        line-height: 1.3;
+      }
     }
   `]
 })

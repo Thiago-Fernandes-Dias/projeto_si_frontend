@@ -44,6 +44,11 @@ describe('EnrollmentComponent', () => {
     expect(component.currentUsername).toBe('teste_user');
   });
 
+  it('deve pedir a senha no rótulo do campo de digitação', () => {
+    const label = (fixture.nativeElement as HTMLElement).querySelector('.input-section label');
+    expect(label?.textContent?.trim()).toBe('Digite sua senha e pressione Enter');
+  });
+
   it('deve rejeitar tentativa com senha divergente da cadastrada', () => {
     component.onSampleSubmitted('senha_errada');
     expect(component.validationError).toContain('Texto incorreto');

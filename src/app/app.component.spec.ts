@@ -16,10 +16,12 @@ describe('AppComponent', () => {
     expect(app).toBeTruthy();
   });
 
-  it('deve renderizar o título do projeto no navbar', () => {
+  it('não deve exibir cabeçalho nem rodapé, apenas a área das telas', () => {
     const fixture = TestBed.createComponent(AppComponent);
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('h1')?.textContent).toContain('Keystroke Dynamics Biometrics');
+    expect(compiled.querySelector('header')).toBeNull();
+    expect(compiled.querySelector('footer')).toBeNull();
+    expect(compiled.querySelector('main router-outlet')).not.toBeNull();
   });
 });

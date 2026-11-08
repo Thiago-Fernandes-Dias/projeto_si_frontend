@@ -23,6 +23,9 @@ Este documento detalha os requisitos funcionais, não-funcionais, arquiteturais 
        │
        ▼
 [Tela de Login Biométrico]
+       │ (Decisão GENUINE)
+       ▼
+[Área de Sessão Autenticada] ── (Sair) ──► [Tela de Login]
 ```
 
 1. **Cadastro:** O usuário preenche seus dados (nome/identificador e define sua senha).
@@ -35,7 +38,7 @@ Este documento detalha os requisitos funcionais, não-funcionais, arquiteturais 
 ## 3. Requisitos Funcionais (RF)
 
 ### 3.1. Cadastro de Usuário
-- **RF01 - Formulário de Cadastro:** A interface deve fornecer campos para identificador de usuário (usuário/e-mail/RA) e senha.
+- **RF01 - Formulário de Cadastro:** A interface deve fornecer campos para identificador de usuário (usuário/e-mail/RA) e senha. A senha é digitada pelo próprio usuário, sem atalho para preencher a senha padrão do benchmark CMU.
 - **RF02 - Redirecionamento Automático:** Concluída a validação textual do cadastro com sucesso, o sistema deve direcionar o usuário imediatamente para a tela de coleta de amostras de digitação.
 
 ### 3.2. Coleta de Amostras de Digitação (*Enrollment*)
@@ -61,6 +64,10 @@ Este documento detalha os requisitos funcionais, não-funcionais, arquiteturais 
   - **Acesso Bloqueado:** Senha textual correta, mas padrão de ritmo classificado como Impostor.
   - **Credenciais Inválidas:** Senha textual incorreta.
 
+### 3.5. Sessão Autenticada
+- **RF13 - Sessão e Rota Protegida:** Quando a decisão biométrica for `GENUINE`, o frontend registra a sessão do usuário (persistida em `localStorage`) e o direciona para a rota `/session`, protegida por guard (`authGuard`). Acessos à rota sem sessão ativa são redirecionados para `/login`.
+- **RF14 - Encerramento de Sessão:** A área autenticada oferece o botão "Sair", que remove a sessão, apaga a senha digitada e os tempos capturados no login (encerrando a captura) e retorna à tela de login com o campo de senha vazio.
+
 ---
 
 ## 4. Requisitos Não-Funcionais (RNF)
@@ -74,6 +81,7 @@ Este documento detalha os requisitos funcionais, não-funcionais, arquiteturais 
 - **RNF07 - Automação via Makefile:** Criação de `Makefile` com comandos padronizados para instalação de dependências (`make install`), build da aplicação (`make build`), execução de testes (`make test`), inicialização do servidor de desenvolvimento local (`make dev`), construção da imagem Docker (`make docker-build`) e execução do container (`make docker-run`).
 - **RNF08 - Mock API em Python/Flask:** Disponibilização de servidor Mock em Python (Flask + Flask-CORS) em pasta dedicada (`mock_api/`) para responder às requisições do frontend com dados fictícios e simulação biométrica (`/api/register`, `/api/enrollment`, `/api/authenticate`), além de configuração de proxy no Angular CLI (`proxy.conf.json`) para integração transparente em desenvolvimento.
 - **RNF09 - Orquestração Multi-container com Docker Compose:** Disponibilização de arquivo `docker-compose.yml` e `mock_api/Dockerfile` para orquestração conjunta da aplicação frontend (Angular servido via Nginx) e da Mock API (Python/Flask) em containers isolados conectados por rede bridge dedicada (`keystroke-network`). A configuração de proxy reverso do Nginx deve rotear chamadas `/api/` diretamente para o hostname do serviço da mock api (`http://mock-api:5000`), com dependência condicional de healthcheck.
+- **RNF10 - Identidade Visual:** As telas usam um cartão branco central (cantos de 30 px) dividido em duas metades: o formulário e um painel azul (`#7494ec`) com borda curva. Fonte Poppins (Google Fonts), ícones Boxicons 2.1.4 e fundo em gradiente (`#e2e2e2` → `#c9d6ff`). Cadastro e coleta mostram o painel à direita; login e sessão, à esquerda. Ao entrar no cadastro ou no login, o painel desliza para o seu lado, como na troca entre cadastro e login do modelo visual de referência. Abaixo de 650 px de largura, o painel fica no topo e o formulário embaixo. As classes visuais compartilhadas ficam em `src/styles.scss`. O campo de senha do login e da coleta continua sendo o `app-keystroke-input` (RF08). Login por outras plataformas (Google, Facebook, GitHub, LinkedIn), recuperação de senha e campo de e-mail do modelo de referência ficam fora do escopo. O fluxo linear da seção 2 é mantido: o painel do cadastro não oferece atalho para o login. Os painéis do cadastro e do login exibem o nome do sistema, "Keystroke Dynamics Biometrics", e a página não tem cabeçalho no topo nem rodapé: só o cartão aparece sobre o fundo.
 
 ---
 
@@ -195,22 +203,27 @@ Quando o usuário conclui as 5 repetições na tela de coleta, o frontend envia 
 ```
 src/app/
 ├── core/
+│   ├── guards/
+│   │   └── auth.guard.ts             # Bloqueia /session sem sessão ativa e redireciona para /login
 │   ├── models/
 │   │   ├── keystroke.model.ts        # Tipos para eventos, features H/DD/UD e amostras
 │   │   └── user.model.ts             # Modelos de usuário e autenticação
 │   └── services/
 │       ├── keystroke-capture.service.ts # Captura keydown/keyup e calcula H, DD, UD
-│       └── biometric-api.service.ts     # Comunicação com endpoints /register, /enrollment, /authenticate
+│       ├── biometric-api.service.ts     # Comunicação com endpoints /register, /enrollment, /authenticate
+│       └── auth.service.ts              # Registro da sessão autenticada (localStorage) e logout
 ├── features/
 │   ├── register/                     # Tela 1: Cadastro de usuário
 │   │   └── register.component.ts
 │   ├── enrollment/                   # Tela 2: Coleta obrigatória de 5 amostras
 │   │   └── enrollment.component.ts
-│   └── login/                        # Tela 3: Login com autenticação biométrica
-│       └── login.component.ts
+│   ├── login/                        # Tela 3: Login com autenticação biométrica
+│   │   └── login.component.ts
+│   └── session/                      # Tela 4: Área de sessão autenticada (rota /session)
 └── shared/
     └── components/
         └── keystroke-input/          # Input reutilizável com escuta de performance.now()
+src/styles.scss                       # Classes visuais compartilhadas (cartão, painel, campos, botões) do RNF10
 mock_api/
 ├── Dockerfile                        # Containerização da Mock API Python
 ├── app.py                            # Servidor Mock Flask com endpoints /api/*
@@ -234,3 +247,8 @@ Este documento segue as diretrizes estabelecidas no [AGENTS.md](file:///Users/th
 | `1.4.0` | 2026-11-07 | Thiago Dias / Antigravity | Criação da Mock API em Python/Flask na pasta dedicada `mock_api/` e configuração de proxy no frontend Angular para resolução de chamadas `/api/*`. |
 | `1.5.0` | 2026-11-07 | Thiago Dias / Antigravity | Remoção de qualquer menção ou endpoint de listagem de algoritmos na Mock API e no serviço do frontend. |
 | `1.6.0` | 2026-11-07 | Thiago Dias / Antigravity | Orquestração multi-container com Docker Compose (`docker-compose.yml`), containerização da Mock API com `mock_api/Dockerfile` e integração Nginx apontando para `http://mock-api:5000`. |
+| `1.7.0` | 2026-11-07 | Júlia Vital | Inclusão de sessão autenticada com rota protegida por guard e logout (RF13, RF14). |
+| `1.7.1` | 2026-11-07 | Júlia Vital | O botão "Sair" passa a apagar a senha digitada e encerrar a captura de digitação (RF14). |
+| `1.8.0` | 2026-11-07 | Júlia Vital | Nova identidade visual (RNF10): cartão com formulário e painel azul deslizante, Poppins e Boxicons, sem login por outras plataformas. |
+| `1.8.1` | 2026-11-07 | Júlia Vital | Remoção do cabeçalho do topo e do rodapé; o nome do sistema passa a aparecer nos painéis do cadastro e do login (RNF10). |
+| `1.8.2` | 2026-11-07 | Júlia Vital | Remoção do atalho "Usar padrão CMU (.tie5Roanl)" da tela de cadastro (RF01). |
