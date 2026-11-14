@@ -36,42 +36,37 @@ describe('KeystrokeCaptureService', () => {
     it('deve gerar intervalos para a senha do benchmark CMU .tie5Roanl com índice sequencial 0', () => {
       const intervals = service.determineExpectedIntervals('.tie5Roanl');
 
-      // 10 caracteres -> 10 H + 9 DD + 9 UD = 28 features
-      expect(intervals.length).toBe(28);
-
-      // Hold Times
-      expect(intervals[0]).toBe('H.period.0');
-      expect(intervals[1]).toBe('H.t.0');
-      expect(intervals[2]).toBe('H.i.0');
-      expect(intervals[3]).toBe('H.e.0');
-      expect(intervals[4]).toBe('H.five.0');
-      expect(intervals[5]).toBe('H.Shift.r.0');
-      expect(intervals[6]).toBe('H.o.0');
-      expect(intervals[7]).toBe('H.a.0');
-      expect(intervals[8]).toBe('H.n.0');
-      expect(intervals[9]).toBe('H.l.0');
-
-      // Down-Down
-      expect(intervals[10]).toBe('DD.period.t.0');
-      expect(intervals[11]).toBe('DD.t.i.0');
-      expect(intervals[12]).toBe('DD.i.e.0');
-      expect(intervals[13]).toBe('DD.e.five.0');
-      expect(intervals[14]).toBe('DD.five.Shift.r.0');
-      expect(intervals[15]).toBe('DD.Shift.r.o.0');
-      expect(intervals[16]).toBe('DD.o.a.0');
-      expect(intervals[17]).toBe('DD.a.n.0');
-      expect(intervals[18]).toBe('DD.n.l.0');
-
-      // Up-Down
-      expect(intervals[19]).toBe('UD.period.t.0');
-      expect(intervals[20]).toBe('UD.t.i.0');
-      expect(intervals[21]).toBe('UD.i.e.0');
-      expect(intervals[22]).toBe('UD.e.five.0');
-      expect(intervals[23]).toBe('UD.five.Shift.r.0');
-      expect(intervals[24]).toBe('UD.Shift.r.o.0');
-      expect(intervals[25]).toBe('UD.o.a.0');
-      expect(intervals[26]).toBe('UD.a.n.0');
-      expect(intervals[27]).toBe('UD.n.l.0');
+      // 10 caracteres -> 10 H + 9 DD + 9 UD = 28 features (em ordem CMU intercalada: H, DD, UD por tecla)
+      expect(intervals).toEqual([
+        'H.period.0',
+        'DD.period.t.0',
+        'UD.period.t.0',
+        'H.t.0',
+        'DD.t.i.0',
+        'UD.t.i.0',
+        'H.i.0',
+        'DD.i.e.0',
+        'UD.i.e.0',
+        'H.e.0',
+        'DD.e.five.0',
+        'UD.e.five.0',
+        'H.five.0',
+        'DD.five.Shift.r.0',
+        'UD.five.Shift.r.0',
+        'H.Shift.r.0',
+        'DD.Shift.r.o.0',
+        'UD.Shift.r.o.0',
+        'H.o.0',
+        'DD.o.a.0',
+        'UD.o.a.0',
+        'H.a.0',
+        'DD.a.n.0',
+        'UD.a.n.0',
+        'H.n.0',
+        'DD.n.l.0',
+        'UD.n.l.0',
+        'H.l.0'
+      ]);
     });
 
     it('deve diferenciar caracteres e digrafos repetidos com sufixo sequencial incremental', () => {
@@ -186,7 +181,7 @@ describe('KeystrokeCaptureService', () => {
       service.handleKeyUp(new KeyboardEvent('keyup', { key: '.', code: 'Period' }));
 
       expect(() => service.computeSample(1, '.t')).toThrowError(
-        /foi liberada após a tecla seguinte|mantida pressionada/
+        /Sequência de digitação inválida/
       );
     });
 
@@ -214,7 +209,7 @@ describe('KeystrokeCaptureService', () => {
       service.handleKeyUp(new KeyboardEvent('keyup', { key: 'i', code: 'KeyI' }));
 
       expect(() => service.computeSample(1, '.ti')).toThrowError(
-        /permaneceu pressionada durante a digitação de teclas subsequentes/
+        /Sequência de digitação inválida/
       );
     });
 
@@ -233,7 +228,7 @@ describe('KeystrokeCaptureService', () => {
       service.handleKeyUp(new KeyboardEvent('keyup', { key: 'a', code: 'KeyA' }));
 
       expect(() => service.computeSample(1, 'aa')).toThrowError(
-        /tecla repetida "a" foi pressionada antes de sua liberação/
+        /Sequência de digitação inválida/
       );
     });
 
@@ -242,7 +237,7 @@ describe('KeystrokeCaptureService', () => {
       service.handleKeyDown(new KeyboardEvent('keydown', { key: 'a', code: 'KeyA' }));
 
       expect(() => service.computeSample(1, 'a')).toThrowError(
-        /foi pressionada mas não foi liberada/
+        /Sequência de digitação inválida/
       );
     });
 

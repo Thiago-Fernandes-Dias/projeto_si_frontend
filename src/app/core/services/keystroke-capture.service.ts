@@ -27,23 +27,28 @@ export function determineExpectedIntervals(password: string): string[] {
   }
 
   const featuresCounter = new Map<string, number>();
-  const features: string[] = []
+  const features: string[] = [];
   for (let index = 0; index < password.length - 1; index++) {
     const currentKey = normalizeKeyName(password[index]);
     const nextKey = normalizeKeyName(password[index + 1]);
 
-    let holdCount = featuresCounter.get(`H.${currentKey}`) ?? 0;
+    const holdCount = featuresCounter.get(`H.${currentKey}`) ?? 0;
     features.push(`H.${currentKey}.${holdCount}`);
     featuresCounter.set(`H.${currentKey}`, holdCount + 1);
 
-    let downDownCount = featuresCounter.get(`DD.${currentKey}.${nextKey}`) ?? 0;
+    const downDownCount = featuresCounter.get(`DD.${currentKey}.${nextKey}`) ?? 0;
     features.push(`DD.${currentKey}.${nextKey}.${downDownCount}`);
     featuresCounter.set(`DD.${currentKey}.${nextKey}`, downDownCount + 1);
 
-    let upDownCount = featuresCounter.get(`UD.${currentKey}.${nextKey}`) ?? 0;
+    const upDownCount = featuresCounter.get(`UD.${currentKey}.${nextKey}`) ?? 0;
     features.push(`UD.${currentKey}.${nextKey}.${upDownCount}`);
     featuresCounter.set(`UD.${currentKey}.${nextKey}`, upDownCount + 1);
   }
+
+  const lastKey = normalizeKeyName(password[password.length - 1]);
+  const lastHoldCount = featuresCounter.get(`H.${lastKey}`) ?? 0;
+  features.push(`H.${lastKey}.${lastHoldCount}`);
+  featuresCounter.set(`H.${lastKey}`, lastHoldCount + 1);
 
   return features;
 }
@@ -128,6 +133,10 @@ export class KeystrokeCaptureService {
     this.lastAnomaly.set('Ação de colar não permitida. Digite a senha manualmente.');
   }
 
+  getEventKeyLog(): RawKeyEvent[] {
+    return [...this.keyEventLog];
+  }
+
   determineExpectedIntervals(password: string): string[] {
     return determineExpectedIntervals(password);
   }
@@ -143,28 +152,67 @@ export class KeystrokeCaptureService {
       throw new Error('Nenhuma tecla registrada para calcular a amostra.');
     }
 
-    if (textEntered !== targetPassword) {
+    if (targetPassword !== undefined && textEntered !== targetPassword) {
       throw new Error('Texto digitado não corresponde à senha esperada.');
+    }
+
+    const keyEventLogLength = this.keyEventLog.length;
+    if (keyEventLogLength !== textEntered.length * 2) {
+      throw new Error('Sequência de digitação inválida. Tente digitar em um ritmo mais lento');
     }
 
     const features: KeystrokeFeatures = {};
     const featuresCounter = new Map<string, number>();
 
-    let keyEventLogLength = this.keyEventLog.length;
-    for (let i = 0; i < keyEventLogLength - 3 ; i++) {
-      let first = this.keyEventLog.at(i);
-      let second = this.keyEventLog.at(i + 1);
-      let third = this.keyEventLog.at(i + 2);
+    for (let i = 0; i < keyEventLogLength - 2; i++) {
+      const first = this.keyEventLog.at(i);
+      const second = this.keyEventLog.at(i + 1);
+      const third = this.keyEventLog.at(i + 2);
 
       if (first?.eventType === 'KEY_DOWN' && second?.eventType === 'KEY_UP' && third?.eventType === 'KEY_DOWN') {
-        let holdTime = second.timestamp - first.timestamp;
-        let ddTime = third.timestamp - first.timestamp;
-        let upTime = third.timestamp -second.timestamp;
+        if (i % 2 !== 0 || first.key !== second.key) {
+          throw new Error('Sequência de digitação inválida. Tente digitar em um ritmo mais lento');
+        }
 
-        let holdTimeFeatCount = featuresCounter.get(`H.${first.key}`)
-        featuresCounter.set(`H.${first.key}`, )
+        const currentKey = normalizeKeyName(first.key);
+        const nextKey = normalizeKeyName(third.key);
+
+        const holdTime = Number(((second.timestamp - first.timestamp) / 1000).toFixed(4));
+        const ddTime = Number(((third.timestamp - first.timestamp) / 1000).toFixed(4));
+        const udTime = Number(((third.timestamp - second.timestamp) / 1000).toFixed(4));
+
+        const holdTimeFeatCount = featuresCounter.get(`H.${currentKey}`) ?? 0;
+        featuresCounter.set(`H.${currentKey}`, holdTimeFeatCount + 1);
+        features[`H.${currentKey}.${holdTimeFeatCount}`] = holdTime;
+
+        const ddTimeFeatCount = featuresCounter.get(`DD.${currentKey}.${nextKey}`) ?? 0;
+        featuresCounter.set(`DD.${currentKey}.${nextKey}`, ddTimeFeatCount + 1);
+        features[`DD.${currentKey}.${nextKey}.${ddTimeFeatCount}`] = ddTime;
+
+        const udTimeFeatCount = featuresCounter.get(`UD.${currentKey}.${nextKey}`) ?? 0;
+        featuresCounter.set(`UD.${currentKey}.${nextKey}`, udTimeFeatCount + 1);
+        features[`UD.${currentKey}.${nextKey}.${udTimeFeatCount}`] = udTime;
+      } else if (first?.eventType === 'KEY_UP' && second?.eventType === 'KEY_DOWN' && third?.eventType === 'KEY_UP') {
+        if (i % 2 !== 1 || second.key !== third.key) {
+          throw new Error('Sequência de digitação inválida. Tente digitar em um ritmo mais lento');
+        }
+
+        if (i === keyEventLogLength - 3) {
+          const lastKey = normalizeKeyName(second.key);
+          const holdTime = Number(((third.timestamp - second.timestamp) / 1000).toFixed(4));
+          const holdTimeFeatCount = featuresCounter.get(`H.${lastKey}`) ?? 0;
+          featuresCounter.set(`H.${lastKey}`, holdTimeFeatCount + 1);
+          features[`H.${lastKey}.${holdTimeFeatCount}`] = holdTime;
+        }
+      } else {
+        throw new Error('Sequência de digitação inválida. Tente digitar em um ritmo mais lento');
       }
     }
+
+    const firstEvent = this.keyEventLog.at(0);
+    const lastEvent = this.keyEventLog.at(-1);
+    const totalDurationMs =
+      firstEvent && lastEvent ? Math.max(0, lastEvent.timestamp - firstEvent.timestamp) : 0;
 
     return {
       repetition,
