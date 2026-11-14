@@ -4,7 +4,9 @@ import { Observable, catchError, throwError } from 'rxjs';
 import {
   AuthenticationPayload,
   AuthenticationResponse,
-  EnrollmentPayload
+  EnrollmentPayload,
+  EnrollmentResponse,
+  HealthResponse
 } from '../models/keystroke.model';
 import { RegistrationRequest } from '../models/user.model';
 
@@ -25,14 +27,9 @@ export class BiometricApiService {
       );
   }
 
-  submitEnrollment(
-    payload: EnrollmentPayload
-  ): Observable<{ success: boolean; message: string; samplesRegistered: number }> {
+  submitEnrollment(payload: EnrollmentPayload): Observable<EnrollmentResponse> {
     return this.http
-      .post<{ success: boolean; message: string; samplesRegistered: number }>(
-        `${this.baseUrl}/enrollment`,
-        payload
-      )
+      .post<EnrollmentResponse>(`${this.baseUrl}/enrollment`, payload)
       .pipe(
         catchError((error: HttpErrorResponse) =>
           this.handleError('Falha ao enviar amostras para o servidor.', error)
@@ -50,6 +47,16 @@ export class BiometricApiService {
       );
   }
 
+  checkHealth(): Observable<HealthResponse> {
+    return this.http
+      .get<HealthResponse>(`${this.baseUrl}/health`)
+      .pipe(
+        catchError((error: HttpErrorResponse) =>
+          this.handleError('Falha ao verificar integridade do serviço.', error)
+        )
+      );
+  }
+
   private handleError(defaultMessage: string, error: HttpErrorResponse): Observable<never> {
     let resolvedMessage = defaultMessage;
 
@@ -57,6 +64,10 @@ export class BiometricApiService {
       resolvedMessage = 'Não foi possível conectar ao servidor. Verifique se a API está em execução.';
     } else if (typeof error.error?.message === 'string') {
       resolvedMessage = error.error.message;
+    } else if (typeof error.error?.detail === 'string') {
+      resolvedMessage = error.error.detail;
+    } else if (typeof error.error?.title === 'string') {
+      resolvedMessage = error.error.title;
     } else if (typeof error.error === 'string') {
       resolvedMessage = error.error;
     } else if (error.message) {

@@ -72,12 +72,60 @@ describe('BiometricApiService', () => {
     service.submitEnrollment(payload).subscribe((response) => {
       expect(response.success).toBeTrue();
       expect(response.samplesRegistered).toBe(5);
+      expect(response.calculatedAverageHoldMs).toBe(110.5);
     });
 
     const req = httpTestingController.expectOne('/api/enrollment');
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toEqual(payload);
-    req.flush({ success: true, message: 'Sucesso', samplesRegistered: 5 });
+    req.flush({
+      success: true,
+      message: 'Sucesso',
+      samplesRegistered: 5,
+      calculatedAverageHoldMs: 110.5
+    });
+  });
+
+  it('deve preservar rawTimings com timestamp e eventType (KEY_DOWN/KEY_UP) no enrollment', () => {
+    const payload: EnrollmentPayload = {
+      username: 'usuario_teste',
+      passwordLength: 2,
+      samplesCount: 1,
+      samples: [
+        {
+          repetition: 1,
+          textEntered: 'ab',
+          features: { 'H.a.0': 0.1, 'DD.a.b.0': 0.25, 'UD.a.b.0': 0.15, 'H.b.0': 0.12 },
+          rawTimings: [
+            { key: 'a', code: 'KeyA', timestamp: 1000, eventType: 'KEY_DOWN' },
+            { key: 'a', code: 'KeyA', timestamp: 1100, eventType: 'KEY_UP' },
+            { key: 'b', code: 'KeyB', timestamp: 1250, eventType: 'KEY_DOWN' },
+            { key: 'b', code: 'KeyB', timestamp: 1370, eventType: 'KEY_UP' }
+          ],
+          totalDurationMs: 370
+        }
+      ]
+    };
+
+    service.submitEnrollment(payload).subscribe((response) => {
+      expect(response.success).toBeTrue();
+    });
+
+    const req = httpTestingController.expectOne('/api/enrollment');
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(payload);
+    expect(req.request.body.samples[0].rawTimings).toEqual([
+      { key: 'a', code: 'KeyA', timestamp: 1000, eventType: 'KEY_DOWN' },
+      { key: 'a', code: 'KeyA', timestamp: 1100, eventType: 'KEY_UP' },
+      { key: 'b', code: 'KeyB', timestamp: 1250, eventType: 'KEY_DOWN' },
+      { key: 'b', code: 'KeyB', timestamp: 1370, eventType: 'KEY_UP' }
+    ]);
+    req.flush({
+      success: true,
+      message: 'Lote registrado.',
+      samplesRegistered: 1,
+      calculatedAverageHoldMs: 110
+    });
   });
 
   it('deve propagar erro ao falhar na submissão de enrollment em vez de retornar resposta pronta', () => {
@@ -103,7 +151,7 @@ describe('BiometricApiService', () => {
     expect(errorReceived!.message).toBe('Erro ao processar amostras.');
   });
 
-  it('deve realizar autenticação e retornar decisão biométrica', () => {
+  it('deve realizar autenticação preservando rawTimings com timestamps e retornar decisão biométrica com token', () => {
     const authPayload: AuthenticationPayload = {
       username: 'usuario_teste',
       passwordAttempt: 'senha123',
@@ -122,16 +170,42 @@ describe('BiometricApiService', () => {
     service.authenticate(authPayload).subscribe((response) => {
       expect(response.decision).toBe('GENUINE');
       expect(response.confidenceScore).toBe(0.95);
+      expect(response.accessToken).toBe('jwt-token');
+      expect(response.accessTokenExpiresAt).toBe('2026-11-14T18:00:00Z');
     });
 
     const req = httpTestingController.expectOne('/api/authenticate');
     expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(authPayload);
+    expect(req.request.body.sample.rawTimings).toEqual([
+      { key: 's', code: 'KeyS', timestamp: 100, eventType: 'KEY_DOWN' },
+      { key: 's', code: 'KeyS', timestamp: 200, eventType: 'KEY_UP' }
+    ]);
     req.flush({
       decision: 'GENUINE',
       confidenceScore: 0.95,
       thresholdScore: 0.75,
       inferenceTimeMs: 12,
-      message: 'Acesso Permitido'
+      message: 'Acesso Permitido',
+      userAverageHoldTimeMs: 100,
+      attemptAverageHoldTimeMs: 100,
+      accessToken: 'jwt-token',
+      accessTokenExpiresAt: '2026-11-14T18:00:00Z'
+    });
+  });
+
+  it('deve consultar o endpoint de saúde /api/health', () => {
+    service.checkHealth().subscribe((response) => {
+      expect(response.status).toBe('healthy');
+      expect(response.service).toBe('Keystroke Dynamics Biometrics API');
+    });
+
+    const req = httpTestingController.expectOne('/api/health');
+    expect(req.request.method).toBe('GET');
+    req.flush({
+      status: 'healthy',
+      service: 'Keystroke Dynamics Biometrics API',
+      timestamp: '2026-11-14T16:00:00Z'
     });
   });
 

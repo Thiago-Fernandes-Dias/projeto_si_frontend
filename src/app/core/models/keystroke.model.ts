@@ -27,6 +27,13 @@ export interface EnrollmentPayload {
   samples: KeystrokeSample[];
 }
 
+export interface EnrollmentResponse {
+  success: boolean;
+  message: string;
+  samplesRegistered: number;
+  calculatedAverageHoldMs?: number;
+}
+
 export type BiometricDecision = 'GENUINE' | 'IMPOSTOR' | 'INVALID_CREDENTIALS';
 
 
@@ -44,4 +51,12 @@ export interface AuthenticationResponse {
   message: string;
   userAverageHoldTimeMs?: number;
   attemptAverageHoldTimeMs?: number;
+  accessToken?: string | null;
+  accessTokenExpiresAt?: string | null;
+}
+
+export interface HealthResponse {
+  status: string;
+  service: string;
+  timestamp: string;
 }

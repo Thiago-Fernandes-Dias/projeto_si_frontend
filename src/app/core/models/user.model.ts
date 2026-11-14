@@ -18,6 +18,8 @@ export interface AuthenticatedSession {
   username: string;
   confidenceScore: number;
   authenticatedAt: string;
+  accessToken?: string | null;
+  accessTokenExpiresAt?: string | null;
 }
 
 export interface BlockedAttempt {
