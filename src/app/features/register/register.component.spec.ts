@@ -3,7 +3,7 @@ import { RegisterComponent } from './register.component';
 import { Router } from '@angular/router';
 import { UserSessionService } from '../../core/services/user-session.service';
 import { BiometricApiService } from '../../core/services/biometric-api.service';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 
 describe('RegisterComponent', () => {
   let component: RegisterComponent;
@@ -138,5 +138,21 @@ describe('RegisterComponent', () => {
     expect(biometricApiSpy.registerUser).toHaveBeenCalled();
     expect(userSession.currentUser()?.username).toBe('caique_rodrigues');
     expect(routerSpy.navigate).toHaveBeenCalledWith(['/enrollment']);
+  });
+
+  it('deve exibir mensagem de erro caso o registro falhe na API', () => {
+    biometricApiSpy.registerUser.and.returnValue(
+      throwError(() => new Error('Usuário já cadastrado.'))
+    );
+
+    component.username = 'caique_rodrigues';
+    component.password = '.tie5Roanl';
+    component.confirmPassword = '.tie5Roanl';
+
+    component.onSubmit();
+
+    expect(component.isSubmitting).toBeFalse();
+    expect(component.errorMessage).toBe('Usuário já cadastrado.');
+    expect(routerSpy.navigate).not.toHaveBeenCalled();
   });
 });

@@ -1,29 +1,4 @@
 services:
-  mock-api:
-    build:
-      context: ./mock_api
-      dockerfile: Dockerfile
-    container_name: keystroke-mock-api
-    expose:
-      - "5000"
-    ports:
-      - "${MOCK_API_PORT:-5001}:5000"
-    restart: unless-stopped
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "python",
-          "-c",
-          "import urllib.request; urllib.request.urlopen('http://localhost:5000/api/health')"
-        ]
-      interval: 5s
-      timeout: 3s
-      retries: 3
-      start_period: 2s
-    networks:
-      - keystroke-network
-
   frontend:
     build:
       context: .
@@ -31,9 +6,6 @@ services:
     container_name: keystroke-frontend
     ports:
       - "${FRONTEND_PORT:-4200}:80"
-    depends_on:
-      mock-api:
-        condition: service_healthy
     restart: unless-stopped
     networks:
       - keystroke-network

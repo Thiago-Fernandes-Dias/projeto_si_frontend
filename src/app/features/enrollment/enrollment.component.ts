@@ -102,9 +102,10 @@ export class EnrollmentComponent {
         this.isSubmitting = false;
         this.submissionSuccess = true;
       },
-      error: () => {
+      error: (error: Error) => {
         this.isSubmitting = false;
-        this.submissionSuccess = true;
+        this.submissionSuccess = false;
+        this.validationError = error?.message || 'Falha ao enviar lote de amostras para o servidor.';
       }
     });
   }

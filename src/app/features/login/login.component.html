@@ -32,6 +32,13 @@
       </button>
     </form>
 
+    @if (errorMessage) {
+      <div class="alert alert-error" role="alert">
+        <i class="bx bxs-error" aria-hidden="true"></i>
+        <span>{{ errorMessage }}</span>
+      </div>
+    }
+
     @if (authResult; as result) {
       <div
         class="decision-card"

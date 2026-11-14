@@ -5,7 +5,7 @@ import { UserSessionService } from '../../core/services/user-session.service';
 import { KeystrokeCaptureService } from '../../core/services/keystroke-capture.service';
 import { BiometricApiService } from '../../core/services/biometric-api.service';
 import { AuthService } from '../../core/services/auth.service';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { AuthenticationResponse, KeystrokeSample } from '../../core/models/keystroke.model';
 
 const SESSION_STORAGE_KEY = 'keystrokeAuthSession';
@@ -23,7 +23,7 @@ describe('LoginComponent', () => {
     repetition: 1,
     textEntered: '.tie5Roanl',
     features: { 'H.period': 0.14 },
-    rawTimings: [{ key: '.', code: 'Period', pressTime: 100, releaseTime: 240 }],
+    rawTimings: [{ key: '.', code: 'Period', timestamp: 100, eventType: 'KEY_DOWN' }],
     totalDurationMs: 140
   };
 
@@ -137,5 +137,19 @@ describe('LoginComponent', () => {
 
     expect(authService.blockedAttempt()).toBeNull();
     expect(router.navigate).not.toHaveBeenCalledWith(['/blocked']);
+  });
+
+  it('deve exibir mensagem de erro caso ocorra falha na API ou indisponibilidade', () => {
+    biometricApiSpy.authenticate.and.returnValue(
+      throwError(() => new Error('Não foi possível conectar ao servidor. Verifique se a API está em execução.'))
+    );
+    spyOn(captureService, 'computeSample').and.returnValue(capturedSample);
+
+    component.onPasswordSubmitted('.tie5Roanl');
+
+    expect(component.isAuthenticating).toBeFalse();
+    expect(component.errorMessage).toContain('Não foi possível conectar ao servidor');
+    expect(authService.isAuthenticated()).toBeFalse();
+    expect(router.navigate).not.toHaveBeenCalled();
   });
 });
