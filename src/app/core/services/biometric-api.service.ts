@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable, catchError, of } from 'rxjs';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { Observable, catchError, throwError } from 'rxjs';
 import {
   AuthenticationPayload,
   AuthenticationResponse,
@@ -19,11 +19,8 @@ export class BiometricApiService {
     return this.http
       .post<{ success: boolean; message: string }>(`${this.baseUrl}/register`, request)
       .pipe(
-        catchError(() =>
-          of({
-            success: true,
-            message: `Usuário '${request.username}' cadastrado com sucesso.`
-          })
+        catchError((error: HttpErrorResponse) =>
+          this.handleError('Falha ao registrar usuário.', error)
         )
       );
   }
@@ -37,12 +34,8 @@ export class BiometricApiService {
         payload
       )
       .pipe(
-        catchError(() =>
-          of({
-            success: true,
-            message: `Lote com ${payload.samplesCount} amostras recebido e modelo calibrado.`,
-            samplesRegistered: payload.samplesCount
-          })
+        catchError((error: HttpErrorResponse) =>
+          this.handleError('Falha ao enviar amostras para o servidor.', error)
         )
       );
   }
@@ -51,39 +44,25 @@ export class BiometricApiService {
     return this.http
       .post<AuthenticationResponse>(`${this.baseUrl}/authenticate`, payload)
       .pipe(
-        catchError(() => {
-          // Simulação local baseada em limiar temporal caso o backend Python esteja offline
-          return of(this.simulateLocalBiometricDecision(payload));
-        })
+        catchError((error: HttpErrorResponse) =>
+          this.handleError('Falha ao realizar autenticação biométrica.', error)
+        )
       );
   }
 
-  private simulateLocalBiometricDecision(payload: AuthenticationPayload): AuthenticationResponse {
-    const features = payload.sample.features || {};
-    const holdTimes = Object.entries(features)
-      .filter(([key]) => key.startsWith('H.'))
-      .map(([, val]) => val);
-    const averageHoldSeconds =
-      holdTimes.length > 0
-        ? holdTimes.reduce((acc, current) => acc + current, 0) / holdTimes.length
-        : 0.12;
+  private handleError(defaultMessage: string, error: HttpErrorResponse): Observable<never> {
+    let resolvedMessage = defaultMessage;
 
-    // Heurística de simulação: digitações humanas comuns ficam entre 0.05s e 0.28s
-    const isHumanHold = averageHoldSeconds >= 0.05 && averageHoldSeconds <= 0.28;
-    const confidenceScore = isHumanHold ? 0.91 : 0.42;
-    const decision = confidenceScore >= 0.75 ? 'GENUINE' : 'IMPOSTOR';
+    if (error.status === 0) {
+      resolvedMessage = 'Não foi possível conectar ao servidor. Verifique se a API está em execução.';
+    } else if (typeof error.error?.message === 'string') {
+      resolvedMessage = error.error.message;
+    } else if (typeof error.error === 'string') {
+      resolvedMessage = error.error;
+    } else if (error.message) {
+      resolvedMessage = error.message;
+    }
 
-    return {
-      decision,
-      confidenceScore,
-      thresholdScore: 0.75,
-      inferenceTimeMs: 14.2,
-      message:
-        decision === 'GENUINE'
-          ? 'Padrão biométrico compatível com o perfil legítimo cadastrado.'
-          : 'Padrão biométrico rejeitado: ritmo de digitação diverge do perfil esperado.',
-      userAverageHoldTimeMs: 130,
-      attemptAverageHoldTimeMs: Math.round(averageHoldSeconds * 1000)
-    };
+    return throwError(() => new Error(resolvedMessage));
   }
 }

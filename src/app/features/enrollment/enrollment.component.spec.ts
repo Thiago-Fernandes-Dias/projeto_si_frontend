@@ -4,7 +4,7 @@ import { Router } from '@angular/router';
 import { UserSessionService } from '../../core/services/user-session.service';
 import { KeystrokeCaptureService } from '../../core/services/keystroke-capture.service';
 import { BiometricApiService } from '../../core/services/biometric-api.service';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 
 describe('EnrollmentComponent', () => {
   let component: EnrollmentComponent;
@@ -166,5 +166,27 @@ describe('EnrollmentComponent', () => {
     // Tentativa de submeter uma 6ª amostra
     component.onSampleSubmitted('.tie5Roanl');
     expect(component.currentRepetition).toBe(5);
+  });
+
+  it('deve exibir mensagem de erro caso o envio das amostras falhe na API', () => {
+    biometricApiSpy.submitEnrollment.and.returnValue(
+      throwError(() => new Error('Falha no servidor ao processar amostras.'))
+    );
+
+    spyOn(captureService, 'computeSample').and.callFake((rep: number) => ({
+      repetition: rep,
+      textEntered: '.tie5Roanl',
+      features: { 'H.period': 0.12 },
+      rawTimings: [],
+      totalDurationMs: 1200
+    }));
+
+    for (let i = 1; i <= 5; i++) {
+      component.onSampleSubmitted('.tie5Roanl');
+    }
+
+    expect(component.submissionSuccess).toBeFalse();
+    expect(component.isSubmitting).toBeFalse();
+    expect(component.validationError).toBe('Falha no servidor ao processar amostras.');
   });
 });

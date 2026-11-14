@@ -29,6 +29,7 @@ export class LoginComponent implements OnInit {
   username = '';
   isAuthenticating = false;
   authResult: AuthenticationResponse | null = null;
+  errorMessage: string | null = null;
 
   ngOnInit(): void {
     const user = this.userSession.currentUser();
@@ -46,6 +47,7 @@ export class LoginComponent implements OnInit {
 
   private executeAuthentication(passwordAttempt: string): void {
     this.authResult = null;
+    this.errorMessage = null;
     const targetPassword = this.userSession.currentUser()?.targetPassword || '.tie5Roanl';
 
     if (passwordAttempt !== targetPassword) {
@@ -85,8 +87,9 @@ export class LoginComponent implements OnInit {
             this.router.navigate(['/blocked']);
           }
         },
-        error: () => {
+        error: (error: Error) => {
           this.isAuthenticating = false;
+          this.errorMessage = error?.message || 'Falha ao realizar autenticação biométrica.';
         }
       });
     } catch (error) {
