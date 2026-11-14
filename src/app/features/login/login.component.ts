@@ -48,26 +48,15 @@ export class LoginComponent implements OnInit {
   private executeAuthentication(passwordAttempt: string): void {
     this.authResult = null;
     this.errorMessage = null;
-    const targetPassword = this.userSession.currentUser()?.targetPassword || '.tie5Roanl';
-
-    if (passwordAttempt !== targetPassword) {
-      this.authResult = {
-        decision: 'INVALID_CREDENTIALS',
-        confidenceScore: 0,
-        thresholdScore: 0.75,
-        inferenceTimeMs: 0,
-        message: 'A senha textual digitada está incorreta.'
-      };
-      return;
-    }
 
     try {
-      const sample = this.captureService.computeSample(1, targetPassword);
+      const sample = this.captureService.computeSample(1);
+      const resolvedPasswordAttempt = passwordAttempt || sample.textEntered;
       this.isAuthenticating = true;
 
       const payload: AuthenticationPayload = {
         username: this.username,
-        passwordAttempt,
+        passwordAttempt: resolvedPasswordAttempt,
         sample
       };
 
@@ -79,7 +68,11 @@ export class LoginComponent implements OnInit {
             this.authService.startSession({
               username: this.username,
               confidenceScore: response.confidenceScore,
-              authenticatedAt: new Date().toISOString()
+              authenticatedAt: new Date().toISOString(),
+              ...(response.accessToken !== undefined ? { accessToken: response.accessToken } : {}),
+              ...(response.accessTokenExpiresAt !== undefined
+                ? { accessTokenExpiresAt: response.accessTokenExpiresAt }
+                : {})
             });
             this.router.navigate(['/session']);
           } else if (response.decision === 'IMPOSTOR') {

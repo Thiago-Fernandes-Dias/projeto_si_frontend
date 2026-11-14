@@ -75,11 +75,44 @@ describe('LoginComponent', () => {
     expect(panel?.querySelector('h1')?.textContent).toContain('Keystroke Dynamics Biometrics');
   });
 
-  it('deve marcar INVALID_CREDENTIALS quando a senha textual for incorreta', () => {
+  it('deve marcar INVALID_CREDENTIALS quando nenhuma tecla foi capturada ou a senha for incorreta', () => {
     component.onPasswordSubmitted('senha_errada');
 
     expect(component.authResult).not.toBeNull();
     expect(component.authResult?.decision).toBe('INVALID_CREDENTIALS');
+    expect(authService.isAuthenticated()).toBeFalse();
+    expect(router.navigate).not.toHaveBeenCalled();
+  });
+
+  it('deve consultar o backend mesmo para senhas diferentes da sessão local e exibir INVALID_CREDENTIALS retornado pela API', () => {
+    const invalidResponse: AuthenticationResponse = {
+      decision: 'INVALID_CREDENTIALS',
+      confidenceScore: 0,
+      thresholdScore: 0.75,
+      inferenceTimeMs: 0,
+      message: 'Usuário ou senha incorretos.',
+      userAverageHoldTimeMs: 0,
+      attemptAverageHoldTimeMs: 110,
+      accessToken: null,
+      accessTokenExpiresAt: null
+    };
+    biometricApiSpy.authenticate.and.returnValue(of(invalidResponse));
+    spyOn(captureService, 'computeSample').and.returnValue({
+      ...capturedSample,
+      textEntered: 'outra_senha123'
+    });
+
+    component.onPasswordSubmitted('outra_senha123');
+
+    expect(captureService.computeSample).toHaveBeenCalledWith(1);
+    expect(biometricApiSpy.authenticate).toHaveBeenCalledWith(
+      jasmine.objectContaining({
+        username: 'usuario_teste',
+        passwordAttempt: 'outra_senha123'
+      })
+    );
+    expect(component.authResult?.decision).toBe('INVALID_CREDENTIALS');
+    expect(component.authResult?.message).toBe('Usuário ou senha incorretos.');
     expect(authService.isAuthenticated()).toBeFalse();
     expect(router.navigate).not.toHaveBeenCalled();
   });
@@ -90,7 +123,9 @@ describe('LoginComponent', () => {
       confidenceScore: 0.94,
       thresholdScore: 0.75,
       inferenceTimeMs: 15,
-      message: 'Acesso Permitido'
+      message: 'Acesso Permitido',
+      accessToken: 'jwt-token-123',
+      accessTokenExpiresAt: '2026-11-14T18:00:00Z'
     };
     biometricApiSpy.authenticate.and.returnValue(of(mockAuthResponse));
 
@@ -113,6 +148,8 @@ describe('LoginComponent', () => {
     expect(authService.isAuthenticated()).toBeTrue();
     expect(authService.currentSession()?.username).toBe('usuario_teste');
     expect(authService.currentSession()?.confidenceScore).toBe(0.94);
+    expect(authService.currentSession()?.accessToken).toBe('jwt-token-123');
+    expect(authService.currentSession()?.accessTokenExpiresAt).toBe('2026-11-14T18:00:00Z');
     expect(router.navigate).toHaveBeenCalledWith(['/session']);
   });
 
