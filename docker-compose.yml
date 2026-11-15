@@ -4,6 +4,8 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: keystroke-frontend
+    environment:
+      DEBUG_LOGS: ${DEBUG_LOGS:-true}
     ports:
       - "${FRONTEND_PORT:-4200}:80"
     restart: unless-stopped
