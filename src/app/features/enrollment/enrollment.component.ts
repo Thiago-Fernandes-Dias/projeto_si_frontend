@@ -4,8 +4,9 @@ import { Router } from '@angular/router';
 import { UserSessionService } from '../../core/services/user-session.service';
 import { KeystrokeCaptureService } from '../../core/services/keystroke-capture.service';
 import { BiometricApiService } from '../../core/services/biometric-api.service';
+import { DebugLoggerService } from '../../core/services/debug-logger.service';
 import { KeystrokeInputComponent } from '../../shared/components/keystroke-input/keystroke-input.component';
-import { EnrollmentPayload } from '../../core/models/keystroke.model';
+import { RegistrationRequest } from '../../core/models/keystroke.model';
 
 @Component({
   selector: 'app-enrollment',
@@ -19,6 +20,8 @@ export class EnrollmentComponent {
   readonly userSession = inject(UserSessionService);
   private readonly captureService = inject(KeystrokeCaptureService);
   private readonly biometricApi = inject(BiometricApiService);
+  private readonly debugLogger = inject(DebugLoggerService);
+  private readonly enrollmentCorrelationId = this.debugLogger.newCorrelationId();
 
   @ViewChild('keystrokeInput') keystrokeInputComponent?: KeystrokeInputComponent;
 
@@ -46,6 +49,12 @@ export class EnrollmentComponent {
   }
 
   goBack(): void {
+    this.debugLogger.debug(
+      'enrollment',
+      'enrollment_cancelled_back_to_register',
+      { username: this.currentUsername, completedSamples: this.currentRepetition },
+      this.enrollmentCorrelationId
+    );
     this.captureService.stopRecording();
     this.captureService.reset();
     this.router.navigate(['/register']);
@@ -57,17 +66,41 @@ export class EnrollmentComponent {
     }
 
     this.validationError = null;
+    const nextRepetitionIndex = this.currentRepetition + 1;
 
     if (enteredText !== this.targetPassword) {
-      this.validationError = `Texto incorreto. A senha digitada deve ser exatamente "${this.targetPassword}". Tente novamente.`;
+      this.debugLogger.debug(
+        'enrollment',
+        'enrollment_sample_mismatch',
+        {
+          username: this.currentUsername,
+          repetition: nextRepetitionIndex,
+          enteredLength: enteredText.length,
+          expectedLength: this.targetPassword.length
+        },
+        this.enrollmentCorrelationId
+      );
+      this.validationError = 'Texto incorreto. A senha digitada não corresponde à cadastrada. Tente novamente.';
       this.keystrokeInputComponent?.clearInput();
       return;
     }
 
     try {
-      const nextRepetitionIndex = this.currentRepetition + 1;
       const sample = this.captureService.computeSample(nextRepetitionIndex, this.targetPassword);
       const totalCount = this.userSession.addEnrollmentSample(sample);
+      this.debugLogger.debug(
+        'enrollment',
+        'enrollment_sample_captured',
+        {
+          username: this.currentUsername,
+          repetition: nextRepetitionIndex,
+          totalCount,
+          requiredCount: this.totalRequiredRepetitions,
+          totalDurationMs: sample.totalDurationMs,
+          featureCount: Object.keys(sample.features).length
+        },
+        this.enrollmentCorrelationId
+      );
 
       this.keystrokeInputComponent?.clearInput();
 
@@ -75,12 +108,25 @@ export class EnrollmentComponent {
         this.submitAllSamples();
       }
     } catch (error) {
-      this.validationError = (error as Error).message || 'Erro ao extrair características biométricas.';
+      const message = (error as Error).message || 'Erro ao extrair características biométricas.';
+      this.debugLogger.debug(
+        'enrollment',
+        'enrollment_sample_capture_failed',
+        { username: this.currentUsername, repetition: nextRepetitionIndex, reason: message },
+        this.enrollmentCorrelationId
+      );
+      this.validationError = message;
       this.keystrokeInputComponent?.clearInput();
     }
   }
 
   goToLogin(): void {
+    this.debugLogger.debug(
+      'enrollment',
+      'enrollment_navigated_to_login',
+      { username: this.currentUsername },
+      this.enrollmentCorrelationId
+    );
     this.captureService.stopRecording();
     this.captureService.reset();
     this.router.navigate(['/login']);
@@ -89,24 +135,53 @@ export class EnrollmentComponent {
   private submitAllSamples(): void {
     this.isSubmitting = true;
     const samples = this.userSession.enrollmentSamples();
+    const correlationId = this.enrollmentCorrelationId;
 
-    const payload: EnrollmentPayload = {
+    const payload: RegistrationRequest = {
       username: this.currentUsername,
-      passwordLength: this.targetPassword.length,
-      samplesCount: samples.length,
+      password: this.targetPassword,
       samples
     };
 
-    this.biometricApi.submitEnrollment(payload).subscribe({
-      next: () => {
-        this.isSubmitting = false;
-        this.submissionSuccess = true;
+    this.debugLogger.debug(
+      'enrollment',
+      'enrollment_batch_submitting',
+      {
+        username: payload.username,
+        samplesCount: payload.samples.length,
+        passwordLength: payload.password.length
       },
-      error: (error: Error) => {
-        this.isSubmitting = false;
-        this.submissionSuccess = false;
-        this.validationError = error?.message || 'Falha ao enviar lote de amostras para o servidor.';
-      }
+      correlationId
+    );
+
+    this.debugLogger.withCorrelation(correlationId, () => {
+      this.biometricApi.registerUser(payload).subscribe({
+        next: (response) => {
+          this.isSubmitting = false;
+          this.submissionSuccess = true;
+          this.debugLogger.debug(
+            'enrollment',
+            'enrollment_batch_succeeded',
+            {
+              username: payload.username,
+              samplesRegistered: response.samplesRegistered,
+              calculatedAverageHoldMs: response.calculatedAverageHoldMs
+            },
+            correlationId
+          );
+        },
+        error: (error: Error) => {
+          this.isSubmitting = false;
+          this.submissionSuccess = false;
+          this.validationError = error?.message || 'Falha ao enviar lote de amostras para o servidor.';
+          this.debugLogger.debug(
+            'enrollment',
+            'enrollment_batch_failed',
+            { username: payload.username, error: this.validationError },
+            correlationId
+          );
+        }
+      });
     });
   }
 }

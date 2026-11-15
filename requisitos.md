@@ -30,7 +30,7 @@ Este documento detalha os requisitos funcionais, não-funcionais, arquiteturais 
 
 1. **Cadastro:** O usuário preenche seus dados (nome/identificador e define sua senha).
 2. **Coleta de Amostras (Enrollment):** O usuário é automaticamente direcionado para a tela de coleta, onde deve digitar a senha cadastrada exatamente **5 vezes**.
-3. **Envio e Calibração:** Ao atingir as 5 repetições válidas, o frontend computa os vetores temporais e os transmite ao backend para treinamento do classificador individual. Concluído o envio das 5 amostras, o campo de senha permanece bloqueado e a interface exibe um botão para que o usuário avance manualmente para a tela de login.
+3. **Envio e Calibração:** Ao atingir as 5 repetições válidas, o frontend envia username, senha e os vetores temporais em uma única requisição `POST /api/register`, que cria o usuário e treina o classificador individual. Concluído o envio das 5 amostras, o campo de senha permanece bloqueado e a interface exibe um botão para que o usuário avance manualmente para a tela de login.
 4. **Autenticação:** O usuário realiza login digitando sua credencial; o frontend extrai o vetor biométrico da tentativa e consulta o modelo no backend para autorizar ou bloquear a sessão. O fluxo é linear e guiado, sem menu de navegação aberto.
 
 ---
@@ -46,7 +46,7 @@ Este documento detalha os requisitos funcionais, não-funcionais, arquiteturais 
 - **RF04 - Feedback e Progresso Visual:** O sistema deve informar o progresso em tempo real (ex.: *"Amostra 1 de 5"*, *"Amostra 2 de 5"*), limpando o campo de entrada automaticamente a cada repetição concluída com sucesso.
 - **RF05 - Validação Textual e Descarte de Inconsistências:** A amostra só é contabilizada se o texto digitado corresponder exatamente à senha escolhida no cadastro. Se houver discrepância de caracteres, a amostra é descartada com aviso instrutivo ao usuário.
 - **RF06 - Invalidação por Correção ou Colagem:** Caso o usuário pressione teclas de correção (*Backspace*, *Delete*) ou realize colagem (*Paste*), o campo é limpo e a repetição atual deve ser reiniciada, assegurando a pureza do fluxo temporal.
-- **RF07 - Submissão do Lote de Treinamento e Avanço Manual:** Ao atingir a 5ª repetição válida, o frontend monta o pacote com as 5 amostras temporais e dispara a requisição HTTP POST para a API backend. Concluída a submissão, a interface mantém o campo de senha bloqueado e exibe um botão para prosseguir ao login, ocorrendo a navegação para a tela de autenticação exclusivamente após o clique do usuário nesse botão (sem redirecionamento automático).
+- **RF07 - Submissão Única de Cadastro e Amostras:** Ao atingir a 5ª repetição válida, o frontend monta o pacote com username, senha e as 5 amostras temporais e dispara uma única requisição HTTP POST para `/api/register`, que cria o usuário, persiste as amostras e treina o modelo inicial. Concluída a submissão, a interface mantém o campo de senha bloqueado e exibe um botão para prosseguir ao login, ocorrendo a navegação para a tela de autenticação exclusivamente após o clique do usuário nesse botão (sem redirecionamento automático).
 - **RF17 - Voltar ao Cadastro:** A tela de coleta oferece um botão de voltar identificado apenas por um ícone de seta (com rótulo acessível "Voltar para o cadastro"), que encerra a captura em andamento, apaga o texto digitado e retorna à tela de cadastro. O botão fica desabilitado durante o envio do lote e depois da conclusão da coleta.
 
 ### 3.3. Captura e Extração de Características
@@ -90,9 +90,10 @@ Este documento detalha os requisitos funcionais, não-funcionais, arquiteturais 
 - **RNF05 - Arquitetura Angular Moderna:** Uso obrigatório de Standalone Components, Angular Signals para estado reativo, tipagem estrita de modelos TypeScript, separação de responsabilidades em Services (conforme definido em [AGENTS.md](file:///Users/thiago/Repositories/projeto_si_frontend/AGENTS.md)) e modularização estrutural de componentes de interface com arquivos desacoplados para template (`*.component.html`), folha de estilos (`*.component.scss`) e classe controladora (`*.component.ts`).
 - **RNF06 - Containerização com Docker:** Disponibilização de `Dockerfile` para execução da aplicação em container isolado, suportando execução de desenvolvimento e build de produção com servidor Nginx.
 - **RNF07 - Automação via Makefile:** Criação de `Makefile` com comandos padronizados para instalação de dependências (`make install`), build da aplicação (`make build`), execução de testes (`make test`), inicialização do servidor de desenvolvimento local (`make dev`), construção da imagem Docker (`make docker-build`) e execução do container (`make docker-run`).
-- **RNF08 - Integração com Backend e Tratamento Estrito de Erros:** A comunicação do frontend é realizada diretamente com os endpoints da API backend (`/api/register`, `/api/enrollment`, `/api/authenticate`). É proibido o retorno de respostas prontas, mocks ou simulações locais em cenários de falha ou indisponibilidade da API. Todo erro de rede ou status de erro retornado pelo servidor deve ser devidamente capturado, tratado e apresentado de forma clara na interface do usuário.
+- **RNF08 - Integração com Backend e Tratamento Estrito de Erros:** A comunicação do frontend é realizada diretamente com os endpoints da API backend (`/api/register`, `/api/authenticate`). É proibido o retorno de respostas prontas, mocks ou simulações locais em cenários de falha ou indisponibilidade da API. Todo erro de rede ou status de erro retornado pelo servidor deve ser devidamente capturado, tratado e apresentado de forma clara na interface do usuário.
 - **RNF09 - Orquestração de Container da Aplicação:** Disponibilização de arquivo `docker-compose.yml` para execução da aplicação frontend em container isolado (Angular servido via Nginx) e configuração de proxy reverso do Nginx para encaminhar chamadas `/api/` ao serviço backend.
 - **RNF10 - Identidade Visual:** As telas usam um cartão branco central (cantos de 30 px) dividido em duas metades: o formulário e um painel azul (`#7494ec`) com borda curva. Fonte Poppins (Google Fonts), ícones Boxicons 2.1.4 e fundo em gradiente (`#e2e2e2` → `#c9d6ff`). Cadastro, coleta, sessão autenticada e acesso bloqueado mostram o painel à direita; o login, à esquerda. Ao entrar no cadastro, no login, na sessão autenticada ou no acesso bloqueado, o painel desliza para o seu lado, como na troca entre cadastro e login do modelo visual de referência; a coleta, que vem logo após o cadastro, não repete o movimento. Abaixo de 650 px de largura, o painel fica no topo e o formulário embaixo. As classes visuais compartilhadas ficam em `src/styles.scss`. O campo de senha do login e da coleta continua sendo o `app-keystroke-input` (RF08). Login por outras plataformas (Google, Facebook, GitHub, LinkedIn), recuperação de senha e campo de e-mail do modelo de referência ficam fora do escopo. O fluxo linear da seção 2 é mantido: o painel do cadastro não oferece atalho para o login. Os painéis do cadastro e do login exibem o nome do sistema, "Keystroke Dynamics Biometrics", e a página não tem cabeçalho no topo nem rodapé: só o cartão aparece sobre o fundo. A tela de acesso bloqueado (RF15) usa o mesmo cartão com o painel e o botão em vermelho (`#e05a5a`).
+- **RNF11 - Logs Estruturados e Diagnóstico de Fluxos em Tempo de Execução:** O frontend emite logs de depuração estruturados em JSON exclusivamente no console do navegador (`console.debug`) cobrindo os fluxos de cadastro, coleta/enrollment, captura biométrica e login, propagando `X-Correlation-ID` nas chamadas `/api/` via interceptor HTTP e omitindo senhas, caracteres digitados, chaves nominais de features e tokens JWT. O recurso permanece desativado em builds e containers de produção (`DEBUG_LOGS=false` por padrão), podendo ser habilitado dinamicamente no Docker Compose por meio da variável de ambiente `DEBUG_LOGS` que gera `/runtime-config.json` no entrypoint do Nginx.
 
 ---
 
@@ -139,13 +140,12 @@ subject,sessionIndex,rep,H.period,DD.period.t,UD.period.t,H.t,DD.t.i,UD.t.i,H.i,
 
 ### 5.3. Formato do Payload JSON Transmitido pelo Frontend Angular ao Backend
 
-Quando o usuário conclui as 5 repetições na tela de coleta, o frontend envia uma requisição `POST /api/enrollment` com a carga estruturada:
+Quando o usuário conclui as 5 repetições na tela de coleta, o frontend envia uma requisição `POST /api/register` com username, senha e as 5 amostras em uma única carga estruturada:
 
 ```json
 {
   "username": "thiago_dias",
-  "passwordLength": 10,
-  "samplesCount": 5,
+  "password": ".tie5Roanl",
   "samples": [
     {
       "repetition": 1,
@@ -217,12 +217,17 @@ src/app/
 │   ├── guards/
 │   │   ├── auth.guard.ts             # Bloqueia /session sem sessão ativa e redireciona para /login
 │   │   └── blocked-attempt.guard.ts  # Libera /blocked só depois de uma tentativa IMPOSTOR
+│   ├── config/
+│   │   └── runtime-config.service.ts # Carrega /runtime-config.json no bootstrap para controle runtime de debug logs
+│   ├── interceptors/
+│   │   └── correlation.interceptor.ts # Injeta X-Correlation-ID e registra duração HTTP nas chamadas /api
 │   ├── models/
 │   │   ├── keystroke.model.ts        # Tipos para eventos, features H/DD/UD e amostras
 │   │   └── user.model.ts             # Modelos de usuário e autenticação
 │   └── services/
+│       ├── debug-logger.service.ts      # Logger estruturado em JSON (console.debug) com redação de dados sensíveis
 │       ├── keystroke-capture.service.ts # Captura keydown/keyup e calcula H, DD, UD
-│       ├── biometric-api.service.ts     # Comunicação com endpoints /register, /enrollment, /authenticate
+│       ├── biometric-api.service.ts     # Comunicação com os endpoints /register e /authenticate
 │       └── auth.service.ts              # Sessão autenticada (localStorage), logout e última tentativa bloqueada
 ├── features/
 │   ├── register/                     # Tela 1: Cadastro de usuário
@@ -259,3 +264,5 @@ Este documento segue as diretrizes estabelecidas no [AGENTS.md](file:///Users/th
 | `1.8.0` | 2026-11-07 | Thiago Dias / Antigravity | Remoção completa dos tipos e propriedades de algoritmos (`MachineLearningAlgorithm`, `selectedAlgorithm`, `algorithm`) dos modelos, serviços e componentes do frontend. |
 | `1.9.0` | 2026-11-07 | Thiago Dias / Antigravity | Refatoração de captura: buffer `eventKeyLog` com `RawEventType` (`KEY_DOWN`/`KEY_UP`), registro de texto no `keydown`, determinação dinâmica de intervalos a partir da senha, sufixo sequencial anti-colisão (`H.t.0`, `H.t.1`) e validação estrita anti-retenção de teclas. |
 | `1.10.0` | 2026-11-14 | Thiago Dias / Antigravity | Remoção da Mock API em Python/Flask e eliminação de respostas prontas/fallbacks em `BiometricApiService`, garantindo tratamento e exibição adequados de erros na UI. |
+| `1.11.0` | 2026-11-15 | Thiago Dias / Antigravity | Inclusão de logs de depuração estruturados em JSON (`console.debug`) nos fluxos de cadastro, coleta/enrollment, captura e login com correlação `X-Correlation-ID`, mascaramento de segredos e toggle em runtime via `/runtime-config.json` / `DEBUG_LOGS` no Nginx. |
+| `1.12.0` | 2026-11-15 | Thiago Dias / Antigravity | Unificação dos endpoints de cadastro e enrollment em `POST /api/register`, que passa a receber username, senha e as 5 amostras em uma única requisição; o frontend consome apenas esse endpoint. |

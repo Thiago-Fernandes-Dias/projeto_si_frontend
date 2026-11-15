@@ -2,27 +2,19 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { RegisterComponent } from './register.component';
 import { Router } from '@angular/router';
 import { UserSessionService } from '../../core/services/user-session.service';
-import { BiometricApiService } from '../../core/services/biometric-api.service';
-import { of, throwError } from 'rxjs';
 
 describe('RegisterComponent', () => {
   let component: RegisterComponent;
   let fixture: ComponentFixture<RegisterComponent>;
   let routerSpy: jasmine.SpyObj<Router>;
   let userSession: UserSessionService;
-  let biometricApiSpy: jasmine.SpyObj<BiometricApiService>;
 
   beforeEach(async () => {
     routerSpy = jasmine.createSpyObj('Router', ['navigate']);
-    biometricApiSpy = jasmine.createSpyObj('BiometricApiService', ['registerUser']);
-    biometricApiSpy.registerUser.and.returnValue(of({ success: true, message: 'Ok' }));
 
     await TestBed.configureTestingModule({
       imports: [RegisterComponent],
-      providers: [
-        { provide: Router, useValue: routerSpy },
-        { provide: BiometricApiService, useValue: biometricApiSpy }
-      ]
+      providers: [{ provide: Router, useValue: routerSpy }]
     }).compileComponents();
 
     fixture = TestBed.createComponent(RegisterComponent);
@@ -122,37 +114,43 @@ describe('RegisterComponent', () => {
     expect(component.errorMessage).toContain('nome de usuário válido');
 
     component.username = 'thiago';
-    component.password = '1234';
-    component.confirmPassword = '5678';
+    component.password = '12345678';
+    component.confirmPassword = '87654321';
     component.onSubmit();
     expect(component.errorMessage).toContain('senhas digitadas não coincidem');
   });
 
-  it('deve cadastrar com sucesso e navegar para /enrollment', () => {
+  it('deve exigir senha com tamanho entre 8 e 64 caracteres', () => {
+    component.username = 'thiago';
+    component.password = 'curta';
+    component.confirmPassword = 'curta';
+
+    component.onSubmit();
+
+    expect(component.errorMessage).toContain('entre 8 e 64 caracteres');
+    expect(routerSpy.navigate).not.toHaveBeenCalled();
+  });
+
+  it('deve salvar as credenciais localmente e navegar para /enrollment sem consumir a API', () => {
     component.username = 'caique_rodrigues';
     component.password = '.tie5Roanl';
     component.confirmPassword = '.tie5Roanl';
 
     component.onSubmit();
 
-    expect(biometricApiSpy.registerUser).toHaveBeenCalled();
     expect(userSession.currentUser()?.username).toBe('caique_rodrigues');
+    expect(userSession.currentUser()?.targetPassword).toBe('.tie5Roanl');
     expect(routerSpy.navigate).toHaveBeenCalledWith(['/enrollment']);
   });
 
-  it('deve exibir mensagem de erro caso o registro falhe na API', () => {
-    biometricApiSpy.registerUser.and.returnValue(
-      throwError(() => new Error('Usuário já cadastrado.'))
-    );
-
+  it('não deve navegar quando a validação falha', () => {
     component.username = 'caique_rodrigues';
     component.password = '.tie5Roanl';
-    component.confirmPassword = '.tie5Roanl';
+    component.confirmPassword = 'senha_diferente';
 
     component.onSubmit();
 
-    expect(component.isSubmitting).toBeFalse();
-    expect(component.errorMessage).toBe('Usuário já cadastrado.');
+    expect(component.errorMessage).toBe('As senhas digitadas não coincidem.');
     expect(routerSpy.navigate).not.toHaveBeenCalled();
   });
 });

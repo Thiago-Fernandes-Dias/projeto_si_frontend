@@ -1,48 +1,92 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Observable, catchError, throwError } from 'rxjs';
+import { Observable, catchError, tap, throwError } from 'rxjs';
 import {
   AuthenticationPayload,
   AuthenticationResponse,
-  EnrollmentPayload,
-  EnrollmentResponse,
-  HealthResponse
+  HealthResponse,
+  RegistrationRequest,
+  RegistrationResponse
 } from '../models/keystroke.model';
-import { RegistrationRequest } from '../models/user.model';
+import { DebugLoggerService } from './debug-logger.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class BiometricApiService {
   private readonly http = inject(HttpClient);
+  private readonly debugLogger = inject(DebugLoggerService);
   private readonly baseUrl = '/api';
 
-  registerUser(request: RegistrationRequest): Observable<{ success: boolean; message: string }> {
+  registerUser(request: RegistrationRequest): Observable<RegistrationResponse> {
+    const correlationId = this.debugLogger.currentCorrelationId ?? undefined;
+    this.debugLogger.debug(
+      'register',
+      'api_register_request',
+      {
+        username: request.username,
+        passwordLength: request.password.length,
+        samplesCount: request.samples.length
+      },
+      correlationId
+    );
     return this.http
-      .post<{ success: boolean; message: string }>(`${this.baseUrl}/register`, request)
+      .post<RegistrationResponse>(`${this.baseUrl}/register`, request)
       .pipe(
+        tap((response) =>
+          this.debugLogger.debug(
+            'register',
+            'api_register_response',
+            {
+              username: request.username,
+              success: response.success,
+              samplesRegistered: response.samplesRegistered,
+              calculatedAverageHoldMs: response.calculatedAverageHoldMs
+            },
+            correlationId
+          )
+        ),
         catchError((error: HttpErrorResponse) =>
-          this.handleError('Falha ao registrar usuário.', error)
-        )
-      );
-  }
-
-  submitEnrollment(payload: EnrollmentPayload): Observable<EnrollmentResponse> {
-    return this.http
-      .post<EnrollmentResponse>(`${this.baseUrl}/enrollment`, payload)
-      .pipe(
-        catchError((error: HttpErrorResponse) =>
-          this.handleError('Falha ao enviar amostras para o servidor.', error)
+          this.handleError('register', 'Falha ao registrar usuário e amostras.', error, correlationId)
         )
       );
   }
 
   authenticate(payload: AuthenticationPayload): Observable<AuthenticationResponse> {
+    const correlationId = this.debugLogger.currentCorrelationId ?? undefined;
+    this.debugLogger.debug(
+      'login',
+      'api_authenticate_request',
+      {
+        username: payload.username,
+        passwordLength: payload.passwordAttempt.length,
+        totalDurationMs: payload.sample.totalDurationMs,
+        featureCount: Object.keys(payload.sample.features).length
+      },
+      correlationId
+    );
     return this.http
       .post<AuthenticationResponse>(`${this.baseUrl}/authenticate`, payload)
       .pipe(
+        tap((response) =>
+          this.debugLogger.debug(
+            'login',
+            'api_authenticate_response',
+            {
+              username: payload.username,
+              decision: response.decision,
+              confidenceScore: response.confidenceScore,
+              thresholdScore: response.thresholdScore,
+              inferenceTimeMs: response.inferenceTimeMs,
+              userAverageHoldTimeMs: response.userAverageHoldTimeMs,
+              attemptAverageHoldTimeMs: response.attemptAverageHoldTimeMs,
+              tokenIssued: Boolean(response.accessToken)
+            },
+            correlationId
+          )
+        ),
         catchError((error: HttpErrorResponse) =>
-          this.handleError('Falha ao realizar autenticação biométrica.', error)
+          this.handleError('login', 'Falha ao realizar autenticação biométrica.', error, correlationId)
         )
       );
   }
@@ -52,12 +96,17 @@ export class BiometricApiService {
       .get<HealthResponse>(`${this.baseUrl}/health`)
       .pipe(
         catchError((error: HttpErrorResponse) =>
-          this.handleError('Falha ao verificar integridade do serviço.', error)
+          this.handleError('http', 'Falha ao verificar integridade do serviço.', error)
         )
       );
   }
 
-  private handleError(defaultMessage: string, error: HttpErrorResponse): Observable<never> {
+  private handleError(
+    flow: 'register' | 'enrollment' | 'login' | 'http',
+    defaultMessage: string,
+    error: HttpErrorResponse,
+    correlationId?: string
+  ): Observable<never> {
     let resolvedMessage = defaultMessage;
 
     if (error.status === 0) {
@@ -73,6 +122,16 @@ export class BiometricApiService {
     } else if (error.message) {
       resolvedMessage = error.message;
     }
+
+    this.debugLogger.debug(
+      flow,
+      'api_error',
+      {
+        status: error.status,
+        message: resolvedMessage
+      },
+      correlationId
+    );
 
     return throwError(() => new Error(resolvedMessage));
   }

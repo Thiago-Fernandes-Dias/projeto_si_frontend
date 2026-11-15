@@ -2,8 +2,11 @@ import { TestBed } from '@angular/core/testing';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { BiometricApiService } from './biometric-api.service';
-import { AuthenticationPayload, EnrollmentPayload } from '../models/keystroke.model';
-import { RegistrationRequest } from '../models/user.model';
+import {
+  AuthenticationPayload,
+  KeystrokeSample,
+  RegistrationRequest
+} from '../models/keystroke.model';
 
 describe('BiometricApiService', () => {
   let service: BiometricApiService;
@@ -21,30 +24,30 @@ describe('BiometricApiService', () => {
     httpTestingController.verify();
   });
 
-  it('deve registrar usuário com sucesso via API', () => {
-    const request: RegistrationRequest = {
-      username: 'usuario_teste',
-      targetPassword: 'password123',
-      confirmPassword: 'password123'
-    };
+  it('deve cadastrar usuário e amostras no endpoint único', () => {
+    const request = criarRegistrationRequest(5);
 
     service.registerUser(request).subscribe((response) => {
       expect(response.success).toBeTrue();
-      expect(response.message).toBe('Usuário registrado com sucesso.');
+      expect(response.message).toBe('Usuário e amostras registrados com sucesso.');
+      expect(response.samplesRegistered).toBe(5);
+      expect(response.calculatedAverageHoldMs).toBe(110.5);
     });
 
     const req = httpTestingController.expectOne('/api/register');
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toEqual(request);
-    req.flush({ success: true, message: 'Usuário registrado com sucesso.' });
+    expect(req.request.body.samples.length).toBe(5);
+    req.flush({
+      success: true,
+      message: 'Usuário e amostras registrados com sucesso.',
+      samplesRegistered: 5,
+      calculatedAverageHoldMs: 110.5
+    });
   });
 
-  it('deve propagar erro ao falhar no registro de usuário em vez de retornar resposta pronta', () => {
-    const request: RegistrationRequest = {
-      username: 'usuario_teste',
-      targetPassword: 'password123',
-      confirmPassword: 'password123'
-    };
+  it('deve propagar erro ao falhar no cadastro de usuário em vez de retornar resposta pronta', () => {
+    const request = criarRegistrationRequest(5);
 
     let errorReceived: Error | null = null;
     service.registerUser(request).subscribe({
@@ -61,59 +64,28 @@ describe('BiometricApiService', () => {
     expect(errorReceived!.message).toBe('Nome de usuário já existe.');
   });
 
-  it('deve submeter o lote de enrollment para a API', () => {
-    const payload: EnrollmentPayload = {
-      username: 'usuario_teste',
-      passwordLength: 5,
-      samplesCount: 5,
-      samples: []
+  it('deve preservar rawTimings com timestamp e eventType (KEY_DOWN/KEY_UP) no cadastro', () => {
+    const request = criarRegistrationRequest(1);
+    request.samples[0] = {
+      repetition: 1,
+      textEntered: 'ab',
+      features: { 'H.a.0': 0.1, 'DD.a.b.0': 0.25, 'UD.a.b.0': 0.15, 'H.b.0': 0.12 },
+      rawTimings: [
+        { key: 'a', code: 'KeyA', timestamp: 1000, eventType: 'KEY_DOWN' },
+        { key: 'a', code: 'KeyA', timestamp: 1100, eventType: 'KEY_UP' },
+        { key: 'b', code: 'KeyB', timestamp: 1250, eventType: 'KEY_DOWN' },
+        { key: 'b', code: 'KeyB', timestamp: 1370, eventType: 'KEY_UP' }
+      ],
+      totalDurationMs: 370
     };
 
-    service.submitEnrollment(payload).subscribe((response) => {
-      expect(response.success).toBeTrue();
-      expect(response.samplesRegistered).toBe(5);
-      expect(response.calculatedAverageHoldMs).toBe(110.5);
-    });
-
-    const req = httpTestingController.expectOne('/api/enrollment');
-    expect(req.request.method).toBe('POST');
-    expect(req.request.body).toEqual(payload);
-    req.flush({
-      success: true,
-      message: 'Sucesso',
-      samplesRegistered: 5,
-      calculatedAverageHoldMs: 110.5
-    });
-  });
-
-  it('deve preservar rawTimings com timestamp e eventType (KEY_DOWN/KEY_UP) no enrollment', () => {
-    const payload: EnrollmentPayload = {
-      username: 'usuario_teste',
-      passwordLength: 2,
-      samplesCount: 1,
-      samples: [
-        {
-          repetition: 1,
-          textEntered: 'ab',
-          features: { 'H.a.0': 0.1, 'DD.a.b.0': 0.25, 'UD.a.b.0': 0.15, 'H.b.0': 0.12 },
-          rawTimings: [
-            { key: 'a', code: 'KeyA', timestamp: 1000, eventType: 'KEY_DOWN' },
-            { key: 'a', code: 'KeyA', timestamp: 1100, eventType: 'KEY_UP' },
-            { key: 'b', code: 'KeyB', timestamp: 1250, eventType: 'KEY_DOWN' },
-            { key: 'b', code: 'KeyB', timestamp: 1370, eventType: 'KEY_UP' }
-          ],
-          totalDurationMs: 370
-        }
-      ]
-    };
-
-    service.submitEnrollment(payload).subscribe((response) => {
+    service.registerUser(request).subscribe((response) => {
       expect(response.success).toBeTrue();
     });
 
-    const req = httpTestingController.expectOne('/api/enrollment');
+    const req = httpTestingController.expectOne('/api/register');
     expect(req.request.method).toBe('POST');
-    expect(req.request.body).toEqual(payload);
+    expect(req.request.body).toEqual(request);
     expect(req.request.body.samples[0].rawTimings).toEqual([
       { key: 'a', code: 'KeyA', timestamp: 1000, eventType: 'KEY_DOWN' },
       { key: 'a', code: 'KeyA', timestamp: 1100, eventType: 'KEY_UP' },
@@ -122,33 +94,10 @@ describe('BiometricApiService', () => {
     ]);
     req.flush({
       success: true,
-      message: 'Lote registrado.',
+      message: 'Cadastro registrado.',
       samplesRegistered: 1,
       calculatedAverageHoldMs: 110
     });
-  });
-
-  it('deve propagar erro ao falhar na submissão de enrollment em vez de retornar resposta pronta', () => {
-    const payload: EnrollmentPayload = {
-      username: 'usuario_teste',
-      passwordLength: 5,
-      samplesCount: 5,
-      samples: []
-    };
-
-    let errorReceived: Error | null = null;
-    service.submitEnrollment(payload).subscribe({
-      next: () => fail('Não deveria ter sucesso'),
-      error: (error) => {
-        errorReceived = error;
-      }
-    });
-
-    const req = httpTestingController.expectOne('/api/enrollment');
-    req.flush({ message: 'Erro ao processar amostras.' }, { status: 500, statusText: 'Server Error' });
-
-    expect(errorReceived).not.toBeNull();
-    expect(errorReceived!.message).toBe('Erro ao processar amostras.');
   });
 
   it('deve realizar autenticação preservando rawTimings com timestamps e retornar decisão biométrica com token', () => {
@@ -239,4 +188,20 @@ describe('BiometricApiService', () => {
     expect(errorReceived).not.toBeNull();
     expect(errorReceived!.message).toContain('Não foi possível conectar ao servidor');
   });
+
+  function criarRegistrationRequest(quantidadeAmostras: number): RegistrationRequest {
+    const samples: KeystrokeSample[] = Array.from({ length: quantidadeAmostras }, (_, indice) => ({
+      repetition: indice + 1,
+      textEntered: 'senha123',
+      features: { 'H.s.0': 0.1 },
+      rawTimings: [],
+      totalDurationMs: 1200
+    }));
+
+    return {
+      username: 'usuario_teste',
+      password: 'senha123',
+      samples
+    };
+  }
 });

@@ -8,12 +8,6 @@ export interface RegisteredUser {
   createdAt: string;
 }
 
-export interface RegistrationRequest {
-  username: string;
-  targetPassword: string;
-  confirmPassword: string;
-}
-
 export interface AuthenticatedSession {
   username: string;
   confidenceScore: number;

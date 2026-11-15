@@ -16,9 +16,9 @@ describe('EnrollmentComponent', () => {
 
   beforeEach(async () => {
     routerSpy = jasmine.createSpyObj('Router', ['navigate']);
-    biometricApiSpy = jasmine.createSpyObj('BiometricApiService', ['submitEnrollment']);
-    biometricApiSpy.submitEnrollment.and.returnValue(
-      of({ success: true, message: 'Ok', samplesRegistered: 5 })
+    biometricApiSpy = jasmine.createSpyObj('BiometricApiService', ['registerUser']);
+    biometricApiSpy.registerUser.and.returnValue(
+      of({ success: true, message: 'Ok', samplesRegistered: 5, calculatedAverageHoldMs: 110.5 })
     );
 
     await TestBed.configureTestingModule({
@@ -94,9 +94,10 @@ describe('EnrollmentComponent', () => {
     expect(panel?.textContent).not.toContain('Etapa');
   });
 
-  it('deve rejeitar tentativa com senha divergente da cadastrada', () => {
+  it('deve rejeitar tentativa com senha divergente da cadastrada sem exibir a senha escolhida', () => {
     component.onSampleSubmitted('senha_errada');
     expect(component.validationError).toContain('Texto incorreto');
+    expect(component.validationError).not.toContain(component.targetPassword);
     expect(component.currentRepetition).toBe(0);
   });
 
@@ -128,7 +129,12 @@ describe('EnrollmentComponent', () => {
       component.onSampleSubmitted('.tie5Roanl');
     }
 
-    expect(biometricApiSpy.submitEnrollment).toHaveBeenCalled();
+    expect(biometricApiSpy.registerUser).toHaveBeenCalledTimes(1);
+    const request = biometricApiSpy.registerUser.calls.mostRecent().args[0];
+    expect(request.username).toBe('teste_user');
+    expect(request.password).toBe('.tie5Roanl');
+    expect(request.samples.length).toBe(5);
+    expect(request.samples.map((sample) => sample.repetition)).toEqual([1, 2, 3, 4, 5]);
     expect(component.submissionSuccess).toBeTrue();
     expect(routerSpy.navigate).not.toHaveBeenCalled();
 
@@ -169,7 +175,7 @@ describe('EnrollmentComponent', () => {
   });
 
   it('deve exibir mensagem de erro caso o envio das amostras falhe na API', () => {
-    biometricApiSpy.submitEnrollment.and.returnValue(
+    biometricApiSpy.registerUser.and.returnValue(
       throwError(() => new Error('Falha no servidor ao processar amostras.'))
     );
 

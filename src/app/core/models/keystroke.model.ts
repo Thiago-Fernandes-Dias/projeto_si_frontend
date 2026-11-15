@@ -20,14 +20,13 @@ export interface KeystrokeSample {
   totalDurationMs: number;
 }
 
-export interface EnrollmentPayload {
+export interface RegistrationRequest {
   username: string;
-  passwordLength: number;
-  samplesCount: number;
+  password: string;
   samples: KeystrokeSample[];
 }
 
-export interface EnrollmentResponse {
+export interface RegistrationResponse {
   success: boolean;
   message: string;
   samplesRegistered: number;
