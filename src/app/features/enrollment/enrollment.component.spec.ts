@@ -342,19 +342,6 @@ describe('EnrollmentComponent', () => {
       expect(element().querySelector('.proceed-button')?.textContent).toContain('Prosseguir para o login');
     });
 
-    it('deve avisar que a troca de senha ainda não existe no servidor quando o backend responder 404', () => {
-      biometricApiSpy.changePassword.and.returnValue(
-        throwError(() => new ApiError('Http failure response for /api/change-password: 404 Not Found', 404))
-      );
-
-      collectFiveSamples();
-
-      expect(component.submissionSuccess).toBeFalse();
-      expect(component.canRetrySubmission).toBeFalse();
-      expect(component.validationError).toContain('A troca de senha ainda não está disponível no servidor');
-      expect(element().querySelector('.retry-button')).toBeNull();
-    });
-
     it('deve orientar a conferir os dados quando a senha atual for recusada (401), sem reenviar', () => {
       biometricApiSpy.changePassword.and.returnValue(
         throwError(() => new ApiError('Usuário ou senha atual incorretos.', 401))

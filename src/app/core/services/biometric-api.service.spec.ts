@@ -234,7 +234,7 @@ describe('BiometricApiService', () => {
       req.flush({ success: true, message: 'Senha alterada.', samplesRegistered: 5, calculatedAverageHoldMs: 110 });
     });
 
-    it('deve expor 404 no ApiError quando o backend ainda não tiver o endpoint', () => {
+    it('deve expor 404 no ApiError quando a rota de troca de senha não existir', () => {
       let errorReceived: ApiError | null = null;
       service.changePassword(criarPasswordChangeRequest()).subscribe({
         next: () => fail('Não deveria ter sucesso'),

@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 
@@ -16,14 +16,18 @@ import { LoginComponent } from './features/login/login.component';
 const SESSION_STORAGE_KEY = 'keystrokeAuthSession';
 
 describe('app routes', () => {
+  let httpTestingController: HttpTestingController;
+
   beforeEach(() => {
     localStorage.removeItem(SESSION_STORAGE_KEY);
     TestBed.configureTestingModule({
       providers: [provideRouter(routes), provideHttpClient(), provideHttpClientTesting()]
     });
+    httpTestingController = TestBed.inject(HttpTestingController);
   });
 
   afterEach(() => {
+    httpTestingController.verify();
     localStorage.removeItem(SESSION_STORAGE_KEY);
   });
 
@@ -52,15 +56,19 @@ describe('app routes', () => {
     expect(TestBed.inject(Router).url).toBe('/login');
   });
 
-  it('should open /session when there is an active session', async () => {
+  it('should open /session when there is an active session and a valid token', async () => {
     TestBed.inject(AuthService).startSession({
       username: 's002_cmu',
       confidenceScore: 0.93,
-      authenticatedAt: '2026-11-07T21:30:00.000Z'
+      authenticatedAt: '2026-11-07T21:30:00.000Z',
+      accessToken: 'token-valido'
     });
     const harness = await RouterTestingHarness.create();
 
-    const component = await harness.navigateByUrl('/session', SessionComponent);
+    const navigation = harness.navigateByUrl('/session', SessionComponent);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    httpTestingController.expectOne('/api/session').flush({ username: 's002_cmu' });
+    const component = await navigation;
 
     expect(TestBed.inject(Router).url).toBe('/session');
     expect(component).toBeInstanceOf(SessionComponent);
