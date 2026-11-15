@@ -223,7 +223,7 @@ export class EnrollmentComponent {
   }
 
   // POST /api/register: 409 = nome de usuário já existe. POST /api/change-password: 401 = senha atual
-  // incorreta e 404 = endpoint ainda ausente no backend. Em ambos, 400 = lote recusado.
+  // incorreta ou conta bloqueada. Em ambos, 400 = lote recusado.
   private handleSubmissionError(error: Error, username: string, correlationId: string): void {
     this.isSubmitting = false;
     this.submissionSuccess = false;
@@ -232,9 +232,6 @@ export class EnrollmentComponent {
 
     if (status === 409 && !this.isPasswordChange) {
       this.validationError = `${message} Volte ao cadastro e escolha outro nome de usuário.`;
-    } else if (status === 404 && this.isPasswordChange) {
-      this.validationError =
-        'A troca de senha ainda não está disponível no servidor (o backend ainda não tem o endpoint /api/change-password).';
     } else if (status === 401) {
       this.validationError = `${message} Volte e confira os dados informados.`;
     } else if (status === 400) {

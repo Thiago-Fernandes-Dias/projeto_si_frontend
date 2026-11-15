@@ -64,7 +64,7 @@ export class BiometricApiService {
       );
   }
 
-  // Contrato da seção 5.4 do requisitos.md; o endpoint ainda não existe no projeto-si-backend.
+  // Contrato da seção 5.4 do requisitos.md.
   changePassword(request: PasswordChangeRequest): Observable<PasswordChangeResponse> {
     const correlationId = this.debugLogger.currentCorrelationId ?? undefined;
     this.debugLogger.debug(
