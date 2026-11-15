@@ -5,10 +5,22 @@ import {
   AuthenticationPayload,
   AuthenticationResponse,
   HealthResponse,
+  PasswordChangeRequest,
+  PasswordChangeResponse,
   RegistrationRequest,
   RegistrationResponse
 } from '../models/keystroke.model';
 import { DebugLoggerService } from './debug-logger.service';
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
 
 @Injectable({
   providedIn: 'root'
@@ -48,6 +60,40 @@ export class BiometricApiService {
         ),
         catchError((error: HttpErrorResponse) =>
           this.handleError('register', 'Falha ao registrar usuário e amostras.', error, correlationId)
+        )
+      );
+  }
+
+  // Contrato da seção 5.4 do requisitos.md; o endpoint ainda não existe no projeto-si-backend.
+  changePassword(request: PasswordChangeRequest): Observable<PasswordChangeResponse> {
+    const correlationId = this.debugLogger.currentCorrelationId ?? undefined;
+    this.debugLogger.debug(
+      'password-change',
+      'api_change_password_request',
+      {
+        username: request.username,
+        newPasswordLength: request.newPassword.length,
+        samplesCount: request.samples.length
+      },
+      correlationId
+    );
+    return this.http
+      .post<PasswordChangeResponse>(`${this.baseUrl}/change-password`, request)
+      .pipe(
+        tap((response) =>
+          this.debugLogger.debug(
+            'password-change',
+            'api_change_password_response',
+            {
+              username: request.username,
+              success: response.success,
+              samplesRegistered: response.samplesRegistered
+            },
+            correlationId
+          )
+        ),
+        catchError((error: HttpErrorResponse) =>
+          this.handleError('password-change', 'Falha ao trocar a senha.', error, correlationId)
         )
       );
   }
@@ -102,7 +148,7 @@ export class BiometricApiService {
   }
 
   private handleError(
-    flow: 'register' | 'enrollment' | 'login' | 'http',
+    flow: 'register' | 'password-change' | 'enrollment' | 'login' | 'http',
     defaultMessage: string,
     error: HttpErrorResponse,
     correlationId?: string
@@ -133,6 +179,6 @@ export class BiometricApiService {
       correlationId
     );
 
-    return throwError(() => new Error(resolvedMessage));
+    return throwError(() => new ApiError(resolvedMessage, error.status));
   }
 }

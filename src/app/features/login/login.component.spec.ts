@@ -75,6 +75,16 @@ describe('LoginComponent', () => {
     expect(panel?.querySelector('h1')?.textContent).toContain('Keystroke Dynamics Biometrics');
   });
 
+  it('deve oferecer cadastro e troca de senha como ações separadas no painel', () => {
+    const panel = (fixture.nativeElement as HTMLElement).querySelector('.toggle-panel');
+
+    expect(panel?.querySelector('.register-link')?.getAttribute('href')).toBe('/register');
+    expect(panel?.querySelector('.register-link')?.textContent).toContain('Cadastrar');
+    expect(panel?.querySelector('.change-password-link')?.getAttribute('href')).toBe('/change-password');
+    expect(panel?.querySelector('.change-password-link')?.textContent).toContain('Trocar senha');
+    expect(panel?.textContent).not.toContain('ou quer trocar a senha');
+  });
+
   it('deve marcar INVALID_CREDENTIALS quando nenhuma tecla foi capturada ou a senha for incorreta', () => {
     component.onPasswordSubmitted('senha_errada');
 

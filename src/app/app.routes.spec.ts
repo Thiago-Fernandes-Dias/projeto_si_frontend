@@ -8,6 +8,9 @@ import { routes } from './app.routes';
 import { AuthService } from './core/services/auth.service';
 import { SessionComponent } from './features/session/session.component';
 import { BlockedComponent } from './features/blocked/blocked.component';
+import { UserSessionService } from './core/services/user-session.service';
+import { EnrollmentComponent } from './features/enrollment/enrollment.component';
+import { ChangePasswordComponent } from './features/change-password/change-password.component';
 
 const SESSION_STORAGE_KEY = 'keystrokeAuthSession';
 
@@ -43,6 +46,42 @@ describe('app routes', () => {
 
     expect(TestBed.inject(Router).url).toBe('/session');
     expect(component).toBeInstanceOf(SessionComponent);
+  });
+
+  it('should redirect /enrollment to /register when no user has registered', async () => {
+    const harness = await RouterTestingHarness.create();
+
+    await harness.navigateByUrl('/enrollment');
+
+    expect(TestBed.inject(Router).url).toBe('/register');
+  });
+
+  it('should open /enrollment after a user has registered', async () => {
+    TestBed.inject(UserSessionService).registerUser('usuario_teste', 'senha1234');
+    const harness = await RouterTestingHarness.create();
+
+    const component = await harness.navigateByUrl('/enrollment', EnrollmentComponent);
+
+    expect(TestBed.inject(Router).url).toBe('/enrollment');
+    expect(component).toBeInstanceOf(EnrollmentComponent);
+  });
+
+  it('should open /change-password without requiring a session', async () => {
+    const harness = await RouterTestingHarness.create();
+
+    const component = await harness.navigateByUrl('/change-password', ChangePasswordComponent);
+
+    expect(TestBed.inject(Router).url).toBe('/change-password');
+    expect(component).toBeInstanceOf(ChangePasswordComponent);
+  });
+
+  it('should open /enrollment after a password change has started', async () => {
+    TestBed.inject(UserSessionService).startPasswordChange('usuario_teste', 'senhaAtual123', 'novaSenha456');
+    const harness = await RouterTestingHarness.create();
+
+    const component = await harness.navigateByUrl('/enrollment', EnrollmentComponent);
+
+    expect(component.isPasswordChange).toBeTrue();
   });
 
   it('should redirect /blocked to /login when there is no blocked attempt', async () => {

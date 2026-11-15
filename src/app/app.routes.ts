@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
 import { blockedAttemptGuard } from './core/guards/blocked-attempt.guard';
+import { registeredUserGuard } from './core/guards/registered-user.guard';
 
 export const routes: Routes = [
   {
@@ -18,7 +19,14 @@ export const routes: Routes = [
     path: 'enrollment',
     loadComponent: () =>
       import('./features/enrollment/enrollment.component').then((m) => m.EnrollmentComponent),
+    canActivate: [registeredUserGuard],
     title: 'Coleta de Amostras - Keystroke Biometrics'
+  },
+  {
+    path: 'change-password',
+    loadComponent: () =>
+      import('./features/change-password/change-password.component').then((m) => m.ChangePasswordComponent),
+    title: 'Trocar Senha - Keystroke Biometrics'
   },
   {
     path: 'login',

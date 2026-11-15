@@ -4,6 +4,16 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { UserSessionService } from '../../core/services/user-session.service';
 import { DebugLoggerService } from '../../core/services/debug-logger.service';
+import {
+  PASSWORD_DEAD_KEY_MESSAGE,
+  PASSWORD_LENGTH_MESSAGE,
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+  USERNAME_RULE_MESSAGE,
+  containsDeadKeyCharacter,
+  isPasswordLengthValid,
+  isValidUsername
+} from '../../core/validation/credential-rules';
 
 @Component({
   selector: 'app-register',
@@ -24,6 +34,9 @@ export class RegisterComponent {
   showPassword = false;
   showConfirmPassword = false;
 
+  readonly passwordMinLength = PASSWORD_MIN_LENGTH;
+  readonly passwordMaxLength = PASSWORD_MAX_LENGTH;
+
   togglePasswordVisibility(): void {
     this.showPassword = !this.showPassword;
   }
@@ -41,18 +54,30 @@ export class RegisterComponent {
       return;
     }
 
+    if (!isValidUsername(this.username)) {
+      this.errorMessage = USERNAME_RULE_MESSAGE;
+      this.debugLogger.debug('register', 'register_validation_failed', { reason: 'username_invalid' });
+      return;
+    }
+
     if (!this.password) {
       this.errorMessage = 'Defina a senha para o cadastro.';
       this.debugLogger.debug('register', 'register_validation_failed', { reason: 'password_empty' });
       return;
     }
 
-    if (this.password.length < 8 || this.password.length > 64) {
-      this.errorMessage = 'A senha deve ter entre 8 e 64 caracteres para cálculo de dinâmica biométrica.';
+    if (!isPasswordLengthValid(this.password)) {
+      this.errorMessage = PASSWORD_LENGTH_MESSAGE;
       this.debugLogger.debug('register', 'register_validation_failed', {
         reason: 'password_length_invalid',
         passwordLength: this.password.length
       });
+      return;
+    }
+
+    if (containsDeadKeyCharacter(this.password)) {
+      this.errorMessage = PASSWORD_DEAD_KEY_MESSAGE;
+      this.debugLogger.debug('register', 'register_validation_failed', { reason: 'password_dead_key_character' });
       return;
     }
 

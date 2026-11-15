@@ -1,7 +1,9 @@
 import { TestBed } from '@angular/core/testing';
 import {
   KeystrokeCaptureService,
-  determineExpectedIntervals
+  MAX_INTERVAL_SECONDS,
+  determineExpectedIntervals,
+  normalizeKeyName
 } from './keystroke-capture.service';
 
 describe('KeystrokeCaptureService', () => {
@@ -146,18 +148,109 @@ describe('KeystrokeCaptureService', () => {
       fakeTime = 2300;
       service.handleKeyUp(new KeyboardEvent('keyup', { key: 'R', code: 'KeyR' }));
 
-      // Tecla 'Enter'
-      fakeTime = 2400;
-      service.handleKeyDown(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter' }));
-      fakeTime = 2500;
-      service.handleKeyUp(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter' }));
-
-      const sample = service.computeSample(1, '5REnter');
+      // O Enter que encerra a digitação é tratado pelo KeystrokeInputComponent e não entra na amostra.
+      const sample = service.computeSample(1, '5R');
       expect(sample.features['H.five.0']).toBe(0.1);
       expect(sample.features['H.Shift.r.0']).toBe(0.1);
-      expect(sample.features['H.Return.0']).toBe(0.1);
       expect(sample.features['DD.five.Shift.r.0']).toBe(0.2);
-      expect(sample.features['DD.Shift.r.Return.0']).toBe(0.2);
+      expect(normalizeKeyName('Enter')).toBe('Return');
+    });
+
+    it('deve gerar as features na mesma ordem e com as mesmas chaves que o backend espera', () => {
+      service.startRecording();
+      let fakeTime = 0;
+      spyOn(performance, 'now').and.callFake(() => fakeTime);
+
+      for (const [key, code] of [['t', 'KeyT'], ['e', 'KeyE'], ['s', 'KeyS'], ['t', 'KeyT'], ['e', 'KeyE']]) {
+        fakeTime += 100;
+        service.handleKeyDown(new KeyboardEvent('keydown', { key, code }));
+        fakeTime += 80;
+        service.handleKeyUp(new KeyboardEvent('keyup', { key, code }));
+      }
+
+      const sample = service.computeSample(1, 'teste');
+      expect(Object.keys(sample.features)).toEqual(determineExpectedIntervals('teste'));
+    });
+
+    it('deve aceitar maiúscula quando o Shift é solto antes da letra', () => {
+      service.startRecording();
+      let fakeTime = 1000;
+      spyOn(performance, 'now').and.callFake(() => fakeTime);
+
+      service.handleKeyDown(new KeyboardEvent('keydown', { key: 'Shift', code: 'ShiftLeft' }));
+      fakeTime = 1050;
+      service.handleKeyDown(new KeyboardEvent('keydown', { key: 'R', code: 'KeyR', shiftKey: true }));
+      fakeTime = 1100;
+      service.handleKeyUp(new KeyboardEvent('keyup', { key: 'Shift', code: 'ShiftLeft' }));
+      fakeTime = 1150;
+      // Sem o Shift pressionado, o navegador informa o keyup como 'r' minúsculo.
+      service.handleKeyUp(new KeyboardEvent('keyup', { key: 'r', code: 'KeyR' }));
+
+      fakeTime = 1300;
+      service.handleKeyDown(new KeyboardEvent('keydown', { key: 'o', code: 'KeyO' }));
+      fakeTime = 1400;
+      service.handleKeyUp(new KeyboardEvent('keyup', { key: 'o', code: 'KeyO' }));
+
+      const sample = service.computeSample(1, 'Ro');
+      expect(sample.features['H.Shift.r.0']).toBe(0.1);
+      expect(sample.features['DD.Shift.r.o.0']).toBe(0.25);
+      expect(sample.features['UD.Shift.r.o.0']).toBe(0.15);
+      expect(sample.features['H.o.0']).toBe(0.1);
+    });
+
+    it('deve ignorar a tecla AltGraph como modificadora', () => {
+      service.startRecording();
+      let fakeTime = 1000;
+      spyOn(performance, 'now').and.callFake(() => fakeTime);
+
+      service.handleKeyDown(new KeyboardEvent('keydown', { key: 'AltGraph', code: 'AltRight' }));
+      fakeTime = 1050;
+      service.handleKeyDown(new KeyboardEvent('keydown', { key: '/', code: 'KeyQ' }));
+      fakeTime = 1150;
+      service.handleKeyUp(new KeyboardEvent('keyup', { key: '/', code: 'KeyQ' }));
+      service.handleKeyUp(new KeyboardEvent('keyup', { key: 'AltGraph', code: 'AltRight' }));
+      fakeTime = 1300;
+      service.handleKeyDown(new KeyboardEvent('keydown', { key: 'a', code: 'KeyA' }));
+      fakeTime = 1400;
+      service.handleKeyUp(new KeyboardEvent('keyup', { key: 'a', code: 'KeyA' }));
+
+      expect(service.currentText()).toBe('/a');
+      expect(service.computeSample(1, '/a').features['H./.0']).toBe(0.1);
+    });
+  });
+
+  describe('Limite de 5 segundos aceito pelo backend', () => {
+    function typeTwoKeys(holdMs: number, pauseMs: number): void {
+      service.startRecording();
+      let fakeTime = 1000;
+      spyOn(performance, 'now').and.callFake(() => fakeTime);
+
+      service.handleKeyDown(new KeyboardEvent('keydown', { key: 'a', code: 'KeyA' }));
+      fakeTime += holdMs;
+      service.handleKeyUp(new KeyboardEvent('keyup', { key: 'a', code: 'KeyA' }));
+      fakeTime += pauseMs;
+      service.handleKeyDown(new KeyboardEvent('keydown', { key: 'b', code: 'KeyB' }));
+      fakeTime += 100;
+      service.handleKeyUp(new KeyboardEvent('keyup', { key: 'b', code: 'KeyB' }));
+    }
+
+    it('deve recusar intervalo entre teclas acima de 5 segundos', () => {
+      typeTwoKeys(100, 5000);
+
+      expect(MAX_INTERVAL_SECONDS).toBe(5);
+      expect(() => service.computeSample(1, 'ab')).toThrowError(/mais de 5 segundos/);
+    });
+
+    it('deve recusar tecla segurada por mais de 5 segundos', () => {
+      typeTwoKeys(5001, 100);
+
+      expect(() => service.computeSample(1, 'ab')).toThrowError(/mais de 5 segundos/);
+    });
+
+    it('deve aceitar intervalo de exatamente 5 segundos', () => {
+      typeTwoKeys(100, 4900);
+
+      expect(service.computeSample(1, 'ab').features['DD.a.b.0']).toBe(5);
     });
   });
 
@@ -261,6 +354,69 @@ describe('KeystrokeCaptureService', () => {
       expect(service.currentText()).toBe('');
       expect(service.getEventKeyLog()).toEqual([]);
       expect(service.lastAnomaly()).toContain('Correção não permitida');
+    });
+
+    it('deve aceitar nova digitação logo depois de um Backspace, ignorando a liberação do Backspace', () => {
+      service.startRecording();
+      let fakeTime = 1000;
+      spyOn(performance, 'now').and.callFake(() => fakeTime);
+
+      service.handleKeyDown(new KeyboardEvent('keydown', { key: 'x', code: 'KeyX' }));
+      service.handleKeyUp(new KeyboardEvent('keyup', { key: 'x', code: 'KeyX' }));
+      service.handleKeyDown(new KeyboardEvent('keydown', { key: 'Backspace', code: 'Backspace' }));
+      service.handleKeyUp(new KeyboardEvent('keyup', { key: 'Backspace', code: 'Backspace' }));
+
+      fakeTime = 2000;
+      service.handleKeyDown(new KeyboardEvent('keydown', { key: 'a', code: 'KeyA' }));
+      fakeTime = 2100;
+      service.handleKeyUp(new KeyboardEvent('keyup', { key: 'a', code: 'KeyA' }));
+      fakeTime = 2300;
+      service.handleKeyDown(new KeyboardEvent('keydown', { key: 'b', code: 'KeyB' }));
+      fakeTime = 2400;
+      service.handleKeyUp(new KeyboardEvent('keyup', { key: 'b', code: 'KeyB' }));
+
+      expect(service.getEventKeyLog().length).toBe(4);
+      expect(service.computeSample(1, 'ab').features['DD.a.b.0']).toBe(0.3);
+    });
+
+    it('deve ignorar keyup de tecla cujo keydown não foi registrado na captura atual', () => {
+      service.startRecording();
+      service.handleKeyUp(new KeyboardEvent('keyup', { key: 'z', code: 'KeyZ' }));
+
+      expect(service.getEventKeyLog()).toEqual([]);
+    });
+
+    it('deve reiniciar o campo ao detectar tecla morta e descartar o caractere acentuado composto', () => {
+      service.startRecording();
+      let fakeTime = 1000;
+      spyOn(performance, 'now').and.callFake(() => fakeTime);
+
+      service.handleKeyDown(new KeyboardEvent('keydown', { key: 'c', code: 'KeyC' }));
+      service.handleKeyUp(new KeyboardEvent('keyup', { key: 'c', code: 'KeyC' }));
+
+      const result = service.handleKeyDown(new KeyboardEvent('keydown', { key: 'Dead', code: 'BracketLeft' }));
+      service.handleKeyUp(new KeyboardEvent('keyup', { key: 'Dead', code: 'BracketLeft' }));
+      expect(result).toBeFalse();
+      expect(service.currentText()).toBe('');
+      expect(service.lastAnomaly()).toContain('Acentos');
+
+      service.handleKeyDown(new KeyboardEvent('keydown', { key: 'á', code: 'KeyA' }));
+      service.handleKeyUp(new KeyboardEvent('keyup', { key: 'a', code: 'KeyA' }));
+      expect(service.currentText()).toBe('');
+      expect(service.getEventKeyLog()).toEqual([]);
+      expect(service.lastAnomaly()).toContain('Acentos');
+
+      fakeTime = 2000;
+      service.handleKeyDown(new KeyboardEvent('keydown', { key: 'o', code: 'KeyO' }));
+      fakeTime = 2100;
+      service.handleKeyUp(new KeyboardEvent('keyup', { key: 'o', code: 'KeyO' }));
+      fakeTime = 2200;
+      service.handleKeyDown(new KeyboardEvent('keydown', { key: 'k', code: 'KeyK' }));
+      fakeTime = 2300;
+      service.handleKeyUp(new KeyboardEvent('keyup', { key: 'k', code: 'KeyK' }));
+
+      expect(service.lastAnomaly()).toBeNull();
+      expect(service.computeSample(1, 'ok').features['H.o.0']).toBe(0.1);
     });
 
     it('deve detectar teclas de navegação como anomalia', () => {

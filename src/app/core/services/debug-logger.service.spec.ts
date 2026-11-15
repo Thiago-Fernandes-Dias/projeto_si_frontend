@@ -51,4 +51,24 @@ describe('DebugLoggerService', () => {
     expect(parsed.data?.['accessToken']).toBe('[REDACTED]');
     expect(parsed.data?.['features']).toBe('[REDACTED]');
   });
+
+  it('deve mascarar a senha atual e a nova senha da troca de senha', () => {
+    runtimeConfig.setDebugLogsEnabled(true);
+    const debugSpy = spyOn(console, 'debug');
+
+    service.debug('password-change', 'password_change_submitted', {
+      username: 'ana',
+      currentPassword: 'senha-antiga-secreta',
+      newPassword: 'senha-nova-secreta',
+      newPasswordLength: 18
+    });
+
+    const [, serialized] = debugSpy.calls.mostRecent().args as [string, string];
+    const parsed = JSON.parse(serialized) as StructuredDebugLogEntry;
+    expect(parsed.flow).toBe('password-change');
+    expect(parsed.data?.['currentPassword']).toBe('[REDACTED]');
+    expect(parsed.data?.['newPassword']).toBe('[REDACTED]');
+    expect(parsed.data?.['newPasswordLength']).toBe(18);
+    expect(serialized).not.toContain('secreta');
+  });
 });

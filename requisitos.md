@@ -39,15 +39,23 @@ Este documento detalha os requisitos funcionais, não-funcionais, arquiteturais 
 
 ### 3.1. Cadastro de Usuário
 - **RF01 - Formulário de Cadastro:** A interface deve fornecer campos para identificador de usuário (usuário/e-mail/RA), senha e confirmação de senha. A senha é digitada pelo próprio usuário, sem atalho para preencher a senha padrão do benchmark CMU. Os campos de senha e confirmação de senha devem permitir ocultar o texto digitado por padrão (máscara de senha), oferecendo botões de alternância com ícones exclusivos de olho (`bx-show` e `bx-hide`) para exibir ou ocultar o texto escrito, sem uso de ícones de cadeado.
+  - **Regras de validação (iguais às do backend `projeto-si-backend`):** o identificador, após remover espaços nas pontas e converter para minúsculas, deve ter de 3 a 50 caracteres usando apenas letras sem acento, números e `. _ @ + -`. A senha deve ter de 8 a 64 caracteres e não pode conter letras acentuadas nem os acentos `´ ` ~ ^ ¨`, que dependem de teclas mortas e impedem a captura correta da digitação (o `ç` é permitido). As regras são exibidas como dica abaixo do formulário e verificadas antes do envio ao backend.
 - **RF02 - Redirecionamento Automático:** Concluída a validação textual do cadastro com sucesso, o sistema deve direcionar o usuário imediatamente para a tela de coleta de amostras de digitação.
 
 ### 3.2. Coleta de Amostras de Digitação (*Enrollment*)
 - **RF03 - Coleta de Exatamente 5 Amostras:** A tela de coleta deve exigir a digitação da senha escolhida por exatamente **5 vezes** válidas. Ao concluir a 5ª repetição, a coleta é encerrada imediatamente, bloqueando o campo de entrada para novas digitações e impedindo a solicitação de repetições adicionais (como uma 6ª amostra).
 - **RF04 - Feedback e Progresso Visual:** O sistema deve informar o progresso em tempo real (ex.: *"Amostra 1 de 5"*, *"Amostra 2 de 5"*), limpando o campo de entrada automaticamente a cada repetição concluída com sucesso.
 - **RF05 - Validação Textual e Descarte de Inconsistências:** A amostra só é contabilizada se o texto digitado corresponder exatamente à senha escolhida no cadastro. Se houver discrepância de caracteres, a amostra é descartada com aviso instrutivo ao usuário.
-- **RF06 - Invalidação por Correção ou Colagem:** Caso o usuário pressione teclas de correção (*Backspace*, *Delete*) ou realize colagem (*Paste*), o campo é limpo e a repetição atual deve ser reiniciada, assegurando a pureza do fluxo temporal.
+- **RF06 - Invalidação por Correção ou Colagem:** Caso o usuário pressione teclas de correção (*Backspace*, *Delete*) ou realize colagem (*Paste*), o campo é limpo e a repetição atual deve ser reiniciada, assegurando a pureza do fluxo temporal. O mesmo vale para teclas mortas de acentuação (evento com `key === 'Dead'`), com aviso de que acentos não são suportados.
 - **RF07 - Submissão Única de Cadastro e Amostras:** Ao atingir a 5ª repetição válida, o frontend monta o pacote com username, senha e as 5 amostras temporais e dispara uma única requisição HTTP POST para `/api/register`, que cria o usuário, persiste as amostras e treina o modelo inicial. Concluída a submissão, a interface mantém o campo de senha bloqueado e exibe um botão para prosseguir ao login, ocorrendo a navegação para a tela de autenticação exclusivamente após o clique do usuário nesse botão (sem redirecionamento automático).
-- **RF17 - Voltar ao Cadastro:** A tela de coleta oferece um botão de voltar identificado apenas por um ícone de seta (com rótulo acessível "Voltar para o cadastro"), que encerra a captura em andamento, apaga o texto digitado e retorna à tela de cadastro. O botão fica desabilitado durante o envio do lote e depois da conclusão da coleta.
+  - **Falha no envio do lote:** a mensagem retornada pela API é exibida e o tratamento depende do status HTTP:
+    - `400` (amostras recusadas): as 5 amostras são descartadas e a coleta recomeça do zero, com o campo de senha liberado.
+    - `409` (nome de usuário indisponível): a mensagem orienta a voltar ao cadastro e escolher outro nome; o botão de voltar permanece habilitado.
+    - `401` (credencial recusada, ex.: senha atual incorreta na troca de senha ou conta bloqueada): a mensagem orienta a voltar e conferir os dados; o lote não é reenviado.
+    - `404` na troca de senha (endpoint `POST /api/change-password` ainda não disponível no backend): a interface informa que a troca de senha ainda não está disponível no servidor.
+    - Falha de conexão (`0`) ou erro do servidor (`5xx`): as 5 amostras são mantidas e a interface exibe o botão "Tentar enviar novamente", que reenvia o mesmo lote.
+- **RF18 - Acesso à Coleta Somente Após Cadastro ou Troca de Senha:** A rota `/enrollment` é protegida pelo guard `registeredUserGuard`; sem um cadastro ou troca de senha iniciados na sessão em memória (por exemplo, após recarregar a página), o acesso é redirecionado para `/register`. Não existe usuário ou senha padrão de demonstração.
+- **RF17 - Voltar ao Cadastro:** A tela de coleta oferece um botão de voltar identificado apenas por um ícone de seta (com rótulo acessível "Voltar para o cadastro", ou "Voltar para a troca de senha" quando a coleta veio da troca de senha), que encerra a captura em andamento, apaga o texto digitado e retorna à tela de origem. O botão fica desabilitado durante o envio do lote e depois da conclusão da coleta.
 
 ### 3.3. Captura e Extração de Características
 - **RF08 - Registro Temporal de Alta Precisão:** A captura dos eventos de teclado (`keydown` e `keyup`) deve ser realizada utilizando a API `performance.now()` armazenando registros em buffer cronológico (`eventKeyLog`) com eventos do tipo `RawEventType` (`KEY_DOWN` e `KEY_UP`). O caractere digitado é registrado exclusivamente no momento do `KEY_DOWN`.
@@ -62,6 +70,9 @@ Este documento detalha os requisitos funcionais, não-funcionais, arquiteturais 
   - Os eventos `KEY_DOWN` correspondam exatamente e em ordem crescente de timestamp a cada caractere da senha.
   - Cada `KEY_DOWN` possua seu `KEY_UP` correspondente.
   - Teclas não tenham sido liberadas fora da ordem de digitação nem mantidas pressionadas de forma anômala (impedindo que o usuário mantenha uma tecla pressionada e a libere apenas ao final da senha).
+  - O `KEY_DOWN` e o `KEY_UP` de uma mesma tecla são associados pela tecla física (`code`), e não pelo caractere (`key`), para que soltar o `Shift` antes da letra maiúscula não invalide a amostra.
+  - Um `KEY_UP` só é registrado se a tecla teve o `KEY_DOWN` registrado na captura atual (ex.: a liberação do *Backspace* que reiniciou o campo é ignorada).
+  - Nenhum Hold Time ($H$) ou Down-Down ($DD$) pode ultrapassar 5 segundos, limite aceito pelo backend; caso contrário a amostra é recusada localmente com aviso de pausa longa.
 
 ### 3.4. Login e Autenticação Biométrica
 - **RF10 - Tela de Autenticação:** Campo de identificação e campo de senha monitorado por serviço de dinâmica de digitação, sem necessidade de configuração ou escolha manual de modelo por parte do usuário final.
@@ -70,6 +81,12 @@ Este documento detalha os requisitos funcionais, não-funcionais, arquiteturais 
   - **Acesso Permitido:** Identidade biométrica compatível (Usuário Genuíno).
   - **Acesso Bloqueado:** Senha textual correta, mas padrão de ritmo classificado como Impostor.
   - **Credenciais Inválidas:** Senha textual incorreta.
+
+- **RF19 - Acessos Separados a Cadastro e Troca de Senha:** O painel da tela de login oferece duas ações distintas: "Cadastrar", que leva a `/register` e serve apenas para novos usuários, e "Trocar senha", que leva a `/change-password`. A troca de senha não passa pela tela de cadastro.
+
+### 3.4.1. Troca de Senha
+- **RF20 - Formulário de Troca de Senha:** A rota `/change-password` apresenta os campos usuário, senha atual, nova senha e confirmação da nova senha, todos os campos de senha com máscara e alternância de visibilidade por ícones de olho (`bx-show`/`bx-hide`), e um link para voltar ao login. Validações antes de prosseguir: usuário no mesmo padrão do cadastro (RF01), senha atual preenchida, nova senha seguindo as regras de senha do cadastro (8 a 64 caracteres, sem acentos), confirmação igual à nova senha e nova senha diferente da atual.
+- **RF21 - Coleta da Nova Senha:** Validado o formulário, o usuário é levado à tela de coleta (`/enrollment`, RF03–RF07) para digitar a **nova** senha 5 vezes, pois o backend invalida a biometria e o modelo treinados antes da mudança de senha. Ao concluir as 5 repetições, o frontend envia `POST /api/change-password` (seção 5.4) em vez de `POST /api/register` e, em caso de sucesso, exibe "Senha alterada com sucesso!" com o botão para prosseguir ao login.
 
 ### 3.5. Sessão Autenticada
 - **RF13 - Sessão e Rota Protegida:** Quando a decisão biométrica for `GENUINE`, o frontend registra a sessão do usuário (persistida em `localStorage`) e o direciona para a rota `/session`, protegida por guard (`authGuard`). Acessos à rota sem sessão ativa são redirecionados para `/login`.
@@ -207,6 +224,29 @@ Quando o usuário conclui as 5 repetições na tela de coleta, o frontend envia 
 }
 ```
 
+### 5.4. Contrato da Troca de Senha (`POST /api/change-password`)
+
+> **Pendente no backend:** em 2026-11-15 o `projeto-si-backend` ainda não expõe este endpoint (existe apenas o método de domínio `Usuario.AlterarSenha`). O frontend já envia a requisição abaixo e trata a ausência do endpoint (`404`) conforme RF07.
+
+**Requisição** (mesmo formato de amostra do cadastro; `samples` contém 5 digitações da **nova** senha):
+
+```json
+{
+  "username": "thiago_dias",
+  "currentPassword": "senhaAtual123",
+  "newPassword": "novaSenha456",
+  "samples": [
+    { "repetition": 1, "features": { "H.n.0": 0.1012, "DD.n.o.0": 0.2133, "UD.n.o.0": 0.1121, "...": "..." }, "rawTimings": [], "textEntered": "novaSenha456", "totalDurationMs": 1834.2 }
+  ]
+}
+```
+
+**Comportamento esperado do backend:**
+1. Validar `newPassword` e `samples` com as mesmas regras de `POST /api/register` (8–64 caracteres, 5 amostras com `textEntered === newPassword` e features válidas) e exigir `newPassword !== currentPassword` → `400` com `{ "success": false, "message": "..." }`.
+2. Verificar `currentPassword` contra o hash do usuário (contando tentativas falhas e respeitando o bloqueio, como no login). Usuário inexistente, senha incorreta ou conta bloqueada → `401` com `{ "success": false, "message": "..." }`, sem revelar se o usuário existe.
+3. Chamar `Usuario.AlterarSenha(novoHash, agora)`, gravar as 5 amostras (`Origem = Cadastro`), concluir o cadastro biométrico e treinar o novo modelo na ML API (`POST /api/enrollment`), que passa a valer por ser posterior a `data_mudanca_senha`.
+4. Responder `200` com `{ "success": true, "message": "...", "samplesRegistered": 5, "calculatedAverageHoldMs": 112.4 }`.
+
 ---
 
 ## 6. Arquitetura e Estrutura do Frontend Angular
@@ -214,9 +254,12 @@ Quando o usuário conclui as 5 repetições na tela de coleta, o frontend envia 
 ```
 src/app/
 ├── core/
+│   ├── validation/
+│   │   └── credential-rules.ts       # Regras de usuário e senha compartilhadas por cadastro e troca de senha
 │   ├── guards/
 │   │   ├── auth.guard.ts             # Bloqueia /session sem sessão ativa e redireciona para /login
-│   │   └── blocked-attempt.guard.ts  # Libera /blocked só depois de uma tentativa IMPOSTOR
+│   │   ├── blocked-attempt.guard.ts  # Libera /blocked só depois de uma tentativa IMPOSTOR
+│   │   └── registered-user.guard.ts  # Libera /enrollment só com usuário cadastrado na sessão
 │   ├── config/
 │   │   └── runtime-config.service.ts # Carrega /runtime-config.json no bootstrap para controle runtime de debug logs
 │   ├── interceptors/
@@ -227,7 +270,7 @@ src/app/
 │   └── services/
 │       ├── debug-logger.service.ts      # Logger estruturado em JSON (console.debug) com redação de dados sensíveis
 │       ├── keystroke-capture.service.ts # Captura keydown/keyup e calcula H, DD, UD
-│       ├── biometric-api.service.ts     # Comunicação com os endpoints /register e /authenticate
+│       ├── biometric-api.service.ts     # Comunicação com os endpoints /register, /change-password e /authenticate
 │       └── auth.service.ts              # Sessão autenticada (localStorage), logout e última tentativa bloqueada
 ├── features/
 │   ├── register/                     # Tela 1: Cadastro de usuário
@@ -236,6 +279,7 @@ src/app/
 │   │   └── enrollment.component.ts
 │   ├── login/                        # Tela 3: Login com autenticação biométrica
 │   │   └── login.component.ts
+│   ├── change-password/              # Troca de senha (rota /change-password), seguida da coleta da nova senha
 │   ├── session/                      # Tela 4: Área de sessão autenticada (rota /session)
 │   └── blocked/                      # Tela 5: Acesso bloqueado após decisão IMPOSTOR (rota /blocked)
 └── shared/
@@ -266,3 +310,5 @@ Este documento segue as diretrizes estabelecidas no [AGENTS.md](file:///Users/th
 | `1.10.0` | 2026-11-14 | Thiago Dias / Antigravity | Remoção da Mock API em Python/Flask e eliminação de respostas prontas/fallbacks em `BiometricApiService`, garantindo tratamento e exibição adequados de erros na UI. |
 | `1.11.0` | 2026-11-15 | Thiago Dias / Antigravity | Inclusão de logs de depuração estruturados em JSON (`console.debug`) nos fluxos de cadastro, coleta/enrollment, captura e login com correlação `X-Correlation-ID`, mascaramento de segredos e toggle em runtime via `/runtime-config.json` / `DEBUG_LOGS` no Nginx. |
 | `1.12.0` | 2026-11-15 | Thiago Dias / Antigravity | Unificação dos endpoints de cadastro e enrollment em `POST /api/register`, que passa a receber username, senha e as 5 amostras em uma única requisição; o frontend consome apenas esse endpoint. |
+| `1.13.0` | 2026-11-15 | Julia Vital | Alinhamento com as regras do backend .NET: validação de usuário (3–50, `a-z0-9._@+-`) e senha (8–64, sem acentos) no cadastro; reenvio ou recoleta do lote conforme o status HTTP da falha em `/api/register` (409 = nome indisponível); guard `registeredUserGuard` e remoção do usuário padrão `s002_cmu`; pareamento de `KEY_DOWN`/`KEY_UP` por tecla física, descarte de `KEY_UP` órfão, bloqueio de teclas mortas e da tecla `AltGraph` e limite local de 5 s para $H$ e $DD$. |
+| `1.14.0` | 2026-11-15 | Julia Vital | Troca de senha separada do cadastro: ações distintas no painel do login (RF19), tela `/change-password` (RF20) seguida da coleta da nova senha (RF21), contrato `POST /api/change-password` pendente no backend (seção 5.4), `401`/`404` sem reenvio na coleta e regras de credencial compartilhadas em `credential-rules.ts`. |

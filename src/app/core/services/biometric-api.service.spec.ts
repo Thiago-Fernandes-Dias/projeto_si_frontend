@@ -1,10 +1,11 @@
 import { TestBed } from '@angular/core/testing';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideHttpClient } from '@angular/common/http';
-import { BiometricApiService } from './biometric-api.service';
+import { ApiError, BiometricApiService } from './biometric-api.service';
 import {
   AuthenticationPayload,
   KeystrokeSample,
+  PasswordChangeRequest,
   RegistrationRequest
 } from '../models/keystroke.model';
 
@@ -62,6 +63,8 @@ describe('BiometricApiService', () => {
 
     expect(errorReceived).not.toBeNull();
     expect(errorReceived!.message).toBe('Nome de usuário já existe.');
+    expect(errorReceived).toBeInstanceOf(ApiError);
+    expect((errorReceived as unknown as ApiError).status).toBe(409);
   });
 
   it('deve preservar rawTimings com timestamp e eventType (KEY_DOWN/KEY_UP) no cadastro', () => {
@@ -98,6 +101,23 @@ describe('BiometricApiService', () => {
       samplesRegistered: 1,
       calculatedAverageHoldMs: 110
     });
+  });
+
+  it('deve expor o status HTTP de erro do servidor no ApiError', () => {
+    let errorReceived: ApiError | null = null;
+    service.registerUser(criarRegistrationRequest(5)).subscribe({
+      next: () => fail('Não deveria ter sucesso'),
+      error: (error: ApiError) => {
+        errorReceived = error;
+      }
+    });
+
+    httpTestingController
+      .expectOne('/api/register')
+      .flush({ message: 'Erro ao processar amostras.' }, { status: 500, statusText: 'Server Error' });
+
+    expect(errorReceived!.status).toBe(500);
+    expect(errorReceived!.message).toBe('Erro ao processar amostras.');
   });
 
   it('deve realizar autenticação preservando rawTimings com timestamps e retornar decisão biométrica com token', () => {
@@ -187,6 +207,64 @@ describe('BiometricApiService', () => {
 
     expect(errorReceived).not.toBeNull();
     expect(errorReceived!.message).toContain('Não foi possível conectar ao servidor');
+    expect((errorReceived as unknown as ApiError).status).toBe(0);
+  });
+
+  describe('changePassword', () => {
+    function criarPasswordChangeRequest(): PasswordChangeRequest {
+      return {
+        username: 'usuario_teste',
+        currentPassword: 'senhaAtual123',
+        newPassword: 'novaSenha456',
+        samples: criarRegistrationRequest(5).samples.map((sample) => ({ ...sample, textEntered: 'novaSenha456' }))
+      };
+    }
+
+    it('deve enviar usuário, senha atual, nova senha e as 5 amostras para POST /api/change-password', () => {
+      const request = criarPasswordChangeRequest();
+
+      service.changePassword(request).subscribe((response) => {
+        expect(response.success).toBeTrue();
+        expect(response.samplesRegistered).toBe(5);
+      });
+
+      const req = httpTestingController.expectOne('/api/change-password');
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual(request);
+      req.flush({ success: true, message: 'Senha alterada.', samplesRegistered: 5, calculatedAverageHoldMs: 110 });
+    });
+
+    it('deve expor 404 no ApiError quando o backend ainda não tiver o endpoint', () => {
+      let errorReceived: ApiError | null = null;
+      service.changePassword(criarPasswordChangeRequest()).subscribe({
+        next: () => fail('Não deveria ter sucesso'),
+        error: (error: ApiError) => {
+          errorReceived = error;
+        }
+      });
+
+      httpTestingController.expectOne('/api/change-password').flush('', { status: 404, statusText: 'Not Found' });
+
+      expect(errorReceived).toBeInstanceOf(ApiError);
+      expect(errorReceived!.status).toBe(404);
+    });
+
+    it('deve expor 401 com a mensagem do backend quando a senha atual estiver incorreta', () => {
+      let errorReceived: ApiError | null = null;
+      service.changePassword(criarPasswordChangeRequest()).subscribe({
+        next: () => fail('Não deveria ter sucesso'),
+        error: (error: ApiError) => {
+          errorReceived = error;
+        }
+      });
+
+      httpTestingController
+        .expectOne('/api/change-password')
+        .flush({ success: false, message: 'Usuário ou senha atual incorretos.' }, { status: 401, statusText: 'Unauthorized' });
+
+      expect(errorReceived!.status).toBe(401);
+      expect(errorReceived!.message).toBe('Usuário ou senha atual incorretos.');
+    });
   });
 
   function criarRegistrationRequest(quantidadeAmostras: number): RegistrationRequest {

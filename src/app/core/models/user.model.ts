@@ -1,8 +1,12 @@
 import { AuthenticationResponse, KeystrokeSample } from './keystroke.model';
 
+export type CredentialFlow = 'registration' | 'password-change';
+
 export interface RegisteredUser {
   username: string;
   targetPassword: string;
+  flow: CredentialFlow;
+  currentPassword?: string;
   isEnrolled: boolean;
   enrollmentSamples: KeystrokeSample[];
   createdAt: string;
