@@ -67,6 +67,43 @@ describe('BiometricApiService', () => {
     expect((errorReceived as unknown as ApiError).status).toBe(409);
   });
 
+  it('deve verificar a disponibilidade do username via GET', () => {
+    let available: boolean | null = null;
+
+    service.checkUsernameAvailability('thiago').subscribe((response) => {
+      available = response.available;
+    });
+
+    const req = httpTestingController.expectOne(
+      (request) =>
+        request.url === '/api/username-availability' &&
+        request.params.get('username') === 'thiago'
+    );
+    expect(req.request.method).toBe('GET');
+    req.flush({ username: 'thiago', available: true });
+
+    expect(available).toBeTrue();
+  });
+
+  it('deve propagar erro ao falhar na verificação de disponibilidade', () => {
+    let errorReceived: ApiError | null = null;
+
+    service.checkUsernameAvailability('thiago').subscribe({
+      next: () => fail('Não deveria ter sucesso'),
+      error: (error: ApiError) => {
+        errorReceived = error;
+      }
+    });
+
+    httpTestingController
+      .expectOne('/api/username-availability?username=thiago')
+      .flush({ message: 'Servidor indisponível.' }, { status: 500, statusText: 'Server Error' });
+
+    expect(errorReceived).toBeInstanceOf(ApiError);
+    expect(errorReceived!.status).toBe(500);
+    expect(errorReceived!.message).toBe('Servidor indisponível.');
+  });
+
   it('deve preservar rawTimings com timestamp e eventType (KEY_DOWN/KEY_UP) no cadastro', () => {
     const request = criarRegistrationRequest(1);
     request.samples[0] = {

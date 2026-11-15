@@ -85,9 +85,11 @@
         </div>
       }
 
-      <button type="submit" class="btn">
-        Prosseguir para a coleta
-        <i class="bx bx-right-arrow-alt" aria-hidden="true"></i>
+      <button type="submit" class="btn" [disabled]="isSubmitting">
+        {{ isSubmitting ? 'Verificando disponibilidade...' : 'Prosseguir para a coleta' }}
+        @if (!isSubmitting) {
+          <i class="bx bx-right-arrow-alt" aria-hidden="true"></i>
+        }
       </button>
 
       <p class="field-hint">
