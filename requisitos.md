@@ -13,6 +13,9 @@ Este documento detalha os requisitos funcionais, não-funcionais, arquiteturais 
 ## 2. Fluxo de Interação do Usuário
 
 ```
+[Tela de Login] (página inicial) ── (Cadastrar) ──► [Tela de Cadastro]
+                                  ── (Trocar senha) ──► [Tela de Troca de Senha]
+
 [Tela de Cadastro] 
        │ (Cadastro com sucesso)
        ▼
@@ -28,6 +31,7 @@ Este documento detalha os requisitos funcionais, não-funcionais, arquiteturais 
 [Área de Sessão Autenticada] ── (Sair) ──► [Tela de Login]
 ```
 
+0. **Página Inicial:** A aplicação abre na tela de login: a rota raiz (`/`) e qualquer rota inexistente redirecionam para `/login`. Novos usuários seguem para o cadastro pelo botão "Cadastrar" do painel do login (RF19).
 1. **Cadastro:** O usuário preenche seus dados (nome/identificador e define sua senha).
 2. **Coleta de Amostras (Enrollment):** O usuário é automaticamente direcionado para a tela de coleta, onde deve digitar a senha cadastrada exatamente **5 vezes**.
 3. **Envio e Calibração:** Ao atingir as 5 repetições válidas, o frontend envia username, senha e os vetores temporais em uma única requisição `POST /api/register`, que cria o usuário e treina o classificador individual. Concluído o envio das 5 amostras, o campo de senha permanece bloqueado e a interface exibe um botão para que o usuário avance manualmente para a tela de login.
@@ -312,3 +316,4 @@ Este documento segue as diretrizes estabelecidas no [AGENTS.md](file:///Users/th
 | `1.12.0` | 2026-11-15 | Thiago Dias / Antigravity | Unificação dos endpoints de cadastro e enrollment em `POST /api/register`, que passa a receber username, senha e as 5 amostras em uma única requisição; o frontend consome apenas esse endpoint. |
 | `1.13.0` | 2026-11-15 | Julia Vital | Alinhamento com as regras do backend .NET: validação de usuário (3–50, `a-z0-9._@+-`) e senha (8–64, sem acentos) no cadastro; reenvio ou recoleta do lote conforme o status HTTP da falha em `/api/register` (409 = nome indisponível); guard `registeredUserGuard` e remoção do usuário padrão `s002_cmu`; pareamento de `KEY_DOWN`/`KEY_UP` por tecla física, descarte de `KEY_UP` órfão, bloqueio de teclas mortas e da tecla `AltGraph` e limite local de 5 s para $H$ e $DD$. |
 | `1.14.0` | 2026-11-15 | Julia Vital | Troca de senha separada do cadastro: ações distintas no painel do login (RF19), tela `/change-password` (RF20) seguida da coleta da nova senha (RF21), contrato `POST /api/change-password` pendente no backend (seção 5.4), `401`/`404` sem reenvio na coleta e regras de credencial compartilhadas em `credential-rules.ts`. |
+| `1.15.0` | 2026-11-15 | Julia Vital | Página inicial alterada para o login: a rota raiz (`/`) e rotas inexistentes redirecionam para `/login` em vez de `/register`. |
