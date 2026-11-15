@@ -1,160 +1,365 @@
-import { Injectable, signal } from '@angular/core';
-import { KeystrokeFeatures, KeystrokeSample, RawKeyEvent } from '../models/keystroke.model';
+import { Injectable, inject, signal } from '@angular/core';
+import {
+  KeystrokeFeatures,
+  KeystrokeSample,
+  RawKeyEvent
+} from '../models/keystroke.model';
+import { DebugLoggerService } from './debug-logger.service';
+
+const MODIFIER_KEYS = ['Shift', 'Control', 'Alt', 'AltGraph', 'Meta', 'CapsLock'];
+const NAVIGATION_KEYS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
+
+// Limite de H e DD aceito pelo backend (VetorCaracteristicas.MaximoIntervaloSegundos).
+export const MAX_INTERVAL_SECONDS = 5;
+
+const INVALID_SEQUENCE_MESSAGE = 'Sequência de digitação inválida. Tente digitar em um ritmo mais lento';
+const LONG_PAUSE_MESSAGE =
+  'Você demorou mais de 5 segundos em uma tecla ou entre duas teclas. Digite a senha novamente em ritmo contínuo.';
+
+// O par KEY_DOWN/KEY_UP é casado pela tecla física: soltar o Shift antes da letra muda o `key` do keyup ('R' -> 'r').
+function physicalKeyId(event: { key: string; code: string }): string {
+  return event.code || event.key;
+}
+
+function isSamePhysicalKey(first: RawKeyEvent, second: RawKeyEvent): boolean {
+  return physicalKeyId(first) === physicalKeyId(second);
+}
+
+export function normalizeKeyName(key: string): string {
+  if (key === '.') {
+    return 'period';
+  }
+  if (key === '5') {
+    return 'five';
+  }
+  if (key === 'Enter') {
+    return 'Return';
+  }
+  if (key.length === 1 && key >= 'A' && key <= 'Z') {
+    return `Shift.${key.toLowerCase()}`;
+  }
+  return key;
+}
+
+export function determineExpectedIntervals(password: string): string[] {
+  if (!password || password.length === 0) {
+    return [];
+  }
+
+  const featuresCounter = new Map<string, number>();
+  const features: string[] = [];
+  for (let index = 0; index < password.length - 1; index++) {
+    const currentKey = normalizeKeyName(password[index]);
+    const nextKey = normalizeKeyName(password[index + 1]);
+
+    const holdCount = featuresCounter.get(`H.${currentKey}`) ?? 0;
+    features.push(`H.${currentKey}.${holdCount}`);
+    featuresCounter.set(`H.${currentKey}`, holdCount + 1);
+
+    const downDownCount = featuresCounter.get(`DD.${currentKey}.${nextKey}`) ?? 0;
+    features.push(`DD.${currentKey}.${nextKey}.${downDownCount}`);
+    featuresCounter.set(`DD.${currentKey}.${nextKey}`, downDownCount + 1);
+
+    const upDownCount = featuresCounter.get(`UD.${currentKey}.${nextKey}`) ?? 0;
+    features.push(`UD.${currentKey}.${nextKey}.${upDownCount}`);
+    featuresCounter.set(`UD.${currentKey}.${nextKey}`, upDownCount + 1);
+  }
+
+  const lastKey = normalizeKeyName(password[password.length - 1]);
+  const lastHoldCount = featuresCounter.get(`H.${lastKey}`) ?? 0;
+  features.push(`H.${lastKey}.${lastHoldCount}`);
+  featuresCounter.set(`H.${lastKey}`, lastHoldCount + 1);
+
+  return features;
+}
 
 @Injectable({
   providedIn: 'root'
 })
 export class KeystrokeCaptureService {
-  private activeKeys: RawKeyEvent[] = [];
-  private completedKeys: RawKeyEvent[] = [];
+  private readonly debugLogger = inject(DebugLoggerService);
+  private keyEventLog: RawKeyEvent[] = [];
+  private readonly pendingKeyDowns = new Map<string, number>();
+  private discardNextComposedKey = false;
 
   readonly isRecording = signal<boolean>(false);
   readonly currentText = signal<string>('');
   readonly lastAnomaly = signal<string | null>(null);
 
   startRecording(): void {
-    this.reset();
+    this.reset('start_recording');
     this.isRecording.set(true);
+    this.debugLogger.debug('capture', 'capture_started');
   }
 
   stopRecording(): void {
     this.isRecording.set(false);
+    this.debugLogger.debug('capture', 'capture_stopped', {
+      bufferedEvents: this.keyEventLog.length
+    });
   }
 
-  reset(): void {
-    this.activeKeys = [];
-    this.completedKeys = [];
+  reset(reason = 'manual_reset'): void {
+    const previousEvents = this.keyEventLog.length;
+    const previousLength = this.currentText().length;
+    this.keyEventLog = [];
+    this.pendingKeyDowns.clear();
+    this.discardNextComposedKey = false;
     this.currentText.set('');
     this.lastAnomaly.set(null);
+    if (previousEvents > 0 || previousLength > 0) {
+      this.debugLogger.debug('capture', 'capture_reset', {
+        reason,
+        previousEvents,
+        previousLength
+      });
+    }
   }
 
   handleKeyDown(event: KeyboardEvent): boolean {
     if (event.repeat) {
+      this.debugLogger.debug('capture', 'capture_repeat_ignored', {
+        bufferedEvents: this.keyEventLog.length
+      });
       return false;
     }
 
     if (event.key === 'Backspace' || event.key === 'Delete') {
-      this.reset();
+      this.reset('correction_key');
       this.lastAnomaly.set('Correção não permitida. O campo foi reiniciado.');
+      this.debugLogger.debug('capture', 'capture_anomaly', {
+        anomaly: 'correction_key'
+      });
       return false;
     }
 
-    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) {
-      this.reset();
+    if (NAVIGATION_KEYS.includes(event.key)) {
+      this.reset('navigation_key');
       this.lastAnomaly.set('Navegação no texto não permitida durante a coleta.');
+      this.debugLogger.debug('capture', 'capture_anomaly', {
+        anomaly: 'navigation_key'
+      });
       return false;
     }
 
-    // Ignora teclas modificadoras isoladas
-    if (['Shift', 'Control', 'Alt', 'Meta', 'CapsLock'].includes(event.key)) {
+    if (event.key === 'Dead') {
+      this.reset('dead_key');
+      this.discardNextComposedKey = true;
+      this.lastAnomaly.set('Acentos (´ ` ~ ^ ¨) não são suportados na senha. O campo foi reiniciado.');
+      this.debugLogger.debug('capture', 'capture_anomaly', {
+        anomaly: 'dead_key'
+      });
+      return false;
+    }
+
+    if (MODIFIER_KEYS.includes(event.key)) {
       return true;
     }
 
-    const pressTime = performance.now();
+    // Depois de uma tecla morta, o próximo keydown traz o caractere acentuado composto (ex.: 'á').
+    if (this.discardNextComposedKey) {
+      this.discardNextComposedKey = false;
+      return false;
+    }
+
     const rawEvent: RawKeyEvent = {
       key: event.key,
       code: event.code,
-      pressTime
+      timestamp: performance.now(),
+      eventType: 'KEY_DOWN'
     };
 
-    this.activeKeys.push(rawEvent);
+    this.keyEventLog.push(rawEvent);
+    const keyId = physicalKeyId(event);
+    this.pendingKeyDowns.set(keyId, (this.pendingKeyDowns.get(keyId) ?? 0) + 1);
     this.currentText.update((text) => text + event.key);
     this.lastAnomaly.set(null);
     return true;
   }
 
   handleKeyUp(event: KeyboardEvent): void {
-    if (['Shift', 'Control', 'Alt', 'Meta', 'CapsLock'].includes(event.key)) {
+    if (MODIFIER_KEYS.includes(event.key)) {
       return;
     }
 
-    const releaseTime = performance.now();
-    const matchingKeyIndex = this.activeKeys.findIndex(
-      (item) => item.key === event.key && item.releaseTime === undefined
-    );
-
-    if (matchingKeyIndex !== -1) {
-      const activeKey = this.activeKeys[matchingKeyIndex];
-      activeKey.releaseTime = releaseTime;
-      this.completedKeys.push(activeKey);
-      this.activeKeys.splice(matchingKeyIndex, 1);
+    // Ignora keyup sem keydown registrado, como o do Backspace que acabou de reiniciar o campo.
+    const keyId = physicalKeyId(event);
+    const pendingCount = this.pendingKeyDowns.get(keyId) ?? 0;
+    if (pendingCount === 0) {
+      return;
     }
+    if (pendingCount === 1) {
+      this.pendingKeyDowns.delete(keyId);
+    } else {
+      this.pendingKeyDowns.set(keyId, pendingCount - 1);
+    }
+
+    const rawEvent: RawKeyEvent = {
+      key: event.key,
+      code: event.code,
+      timestamp: performance.now(),
+      eventType: 'KEY_UP'
+    };
+
+    this.keyEventLog.push(rawEvent);
   }
 
   handlePaste(event: ClipboardEvent): void {
     event.preventDefault();
-    this.reset();
+    this.reset('paste_blocked');
     this.lastAnomaly.set('Ação de colar não permitida. Digite a senha manualmente.');
+    this.debugLogger.debug('capture', 'capture_anomaly', {
+      anomaly: 'paste_blocked'
+    });
   }
 
-  getCompletedKeys(): RawKeyEvent[] {
-    return [...this.completedKeys];
+  getEventKeyLog(): RawKeyEvent[] {
+    return [...this.keyEventLog];
+  }
+
+  determineExpectedIntervals(password: string): string[] {
+    return determineExpectedIntervals(password);
+  }
+
+  normalizeKeyName(key: string): string {
+    return normalizeKeyName(key);
   }
 
   computeSample(repetition: number, targetPassword?: string): KeystrokeSample {
-    const rawTimings = [...this.completedKeys];
     const textEntered = this.currentText();
 
-    if (targetPassword && textEntered !== targetPassword) {
-      throw new Error(`Texto digitado não corresponde à senha esperada.`);
-    }
-
-    if (rawTimings.length === 0) {
+    if (textEntered.length === 0) {
+      this.debugLogger.debug('capture', 'capture_sample_rejected', {
+        repetition,
+        reason: 'empty_text'
+      });
       throw new Error('Nenhuma tecla registrada para calcular a amostra.');
     }
 
+    if (targetPassword !== undefined && textEntered !== targetPassword) {
+      this.debugLogger.debug('capture', 'capture_sample_rejected', {
+        repetition,
+        reason: 'password_mismatch',
+        enteredLength: textEntered.length,
+        expectedLength: targetPassword.length
+      });
+      throw new Error('Texto digitado não corresponde à senha esperada.');
+    }
+
+    const keyEventLogLength = this.keyEventLog.length;
+    if (keyEventLogLength !== textEntered.length * 2) {
+      this.debugLogger.debug('capture', 'capture_sample_rejected', {
+        repetition,
+        reason: 'event_count_mismatch',
+        keyEventsCount: keyEventLogLength,
+        expectedEventsCount: textEntered.length * 2
+      });
+      throw new Error(INVALID_SEQUENCE_MESSAGE);
+    }
+
     const features: KeystrokeFeatures = {};
+    const featuresCounter = new Map<string, number>();
 
-    // Hold Time (H) para cada tecla em segundos (padrão CMU)
-    for (let index = 0; index < rawTimings.length; index++) {
-      const current = rawTimings[index];
-      const release = current.releaseTime ?? current.pressTime;
-      const holdDurationSeconds = (release - current.pressTime) / 1000;
-      const keyName = this.normalizeKeyName(current.key);
-      features[`H.${keyName}`] = Number(holdDurationSeconds.toFixed(4));
+    for (let i = 0; i < keyEventLogLength - 2; i++) {
+      const first = this.keyEventLog.at(i);
+      const second = this.keyEventLog.at(i + 1);
+      const third = this.keyEventLog.at(i + 2);
+
+      if (first?.eventType === 'KEY_DOWN' && second?.eventType === 'KEY_UP' && third?.eventType === 'KEY_DOWN') {
+        if (i % 2 !== 0 || !isSamePhysicalKey(first, second)) {
+          this.debugLogger.debug('capture', 'capture_sample_rejected', {
+            repetition,
+            reason: 'invalid_down_up_order',
+            eventIndex: i
+          });
+          throw new Error(INVALID_SEQUENCE_MESSAGE);
+        }
+
+        const currentKey = normalizeKeyName(first.key);
+        const nextKey = normalizeKeyName(third.key);
+
+        const holdTime = Number(((second.timestamp - first.timestamp) / 1000).toFixed(4));
+        const ddTime = Number(((third.timestamp - first.timestamp) / 1000).toFixed(4));
+        const udTime = Number(((third.timestamp - second.timestamp) / 1000).toFixed(4));
+
+        const holdTimeFeatCount = featuresCounter.get(`H.${currentKey}`) ?? 0;
+        featuresCounter.set(`H.${currentKey}`, holdTimeFeatCount + 1);
+        features[`H.${currentKey}.${holdTimeFeatCount}`] = holdTime;
+
+        const ddTimeFeatCount = featuresCounter.get(`DD.${currentKey}.${nextKey}`) ?? 0;
+        featuresCounter.set(`DD.${currentKey}.${nextKey}`, ddTimeFeatCount + 1);
+        features[`DD.${currentKey}.${nextKey}.${ddTimeFeatCount}`] = ddTime;
+
+        const udTimeFeatCount = featuresCounter.get(`UD.${currentKey}.${nextKey}`) ?? 0;
+        featuresCounter.set(`UD.${currentKey}.${nextKey}`, udTimeFeatCount + 1);
+        features[`UD.${currentKey}.${nextKey}.${udTimeFeatCount}`] = udTime;
+      } else if (first?.eventType === 'KEY_UP' && second?.eventType === 'KEY_DOWN' && third?.eventType === 'KEY_UP') {
+        if (i % 2 !== 1 || !isSamePhysicalKey(second, third)) {
+          this.debugLogger.debug('capture', 'capture_sample_rejected', {
+            repetition,
+            reason: 'invalid_up_down_order',
+            eventIndex: i
+          });
+          throw new Error(INVALID_SEQUENCE_MESSAGE);
+        }
+
+        if (i === keyEventLogLength - 3) {
+          const lastKey = normalizeKeyName(second.key);
+          const holdTime = Number(((third.timestamp - second.timestamp) / 1000).toFixed(4));
+          const holdTimeFeatCount = featuresCounter.get(`H.${lastKey}`) ?? 0;
+          featuresCounter.set(`H.${lastKey}`, holdTimeFeatCount + 1);
+          features[`H.${lastKey}.${holdTimeFeatCount}`] = holdTime;
+        }
+      } else {
+        this.debugLogger.debug('capture', 'capture_sample_rejected', {
+          repetition,
+          reason: 'invalid_event_sequence',
+          eventIndex: i
+        });
+        throw new Error(INVALID_SEQUENCE_MESSAGE);
+      }
     }
 
-    // Down-Down (DD) e Up-Down (UD) para dígrafos consecutivos em segundos
-    for (let index = 0; index < rawTimings.length - 1; index++) {
-      const current = rawTimings[index];
-      const next = rawTimings[index + 1];
-      const currentKeyName = this.normalizeKeyName(current.key);
-      const nextKeyName = this.normalizeKeyName(next.key);
+    this.assertIntervalsWithinBackendLimits(features);
 
-      const downDownSeconds = (next.pressTime - current.pressTime) / 1000;
-      const currentRelease = current.releaseTime ?? current.pressTime;
-      const upDownSeconds = (next.pressTime - currentRelease) / 1000;
+    const firstEvent = this.keyEventLog.at(0);
+    const lastEvent = this.keyEventLog.at(-1);
+    const totalDurationMs =
+      firstEvent && lastEvent ? Math.max(0, lastEvent.timestamp - firstEvent.timestamp) : 0;
 
-      features[`DD.${currentKeyName}.${nextKeyName}`] = Number(downDownSeconds.toFixed(4));
-      features[`UD.${currentKeyName}.${nextKeyName}`] = Number(upDownSeconds.toFixed(4));
-    }
-
-    const firstPress = rawTimings[0].pressTime;
-    const lastRelease = rawTimings[rawTimings.length - 1].releaseTime ?? rawTimings[rawTimings.length - 1].pressTime;
-    const totalDurationMs = Math.max(0, lastRelease - firstPress);
-
-    return {
+    const sample: KeystrokeSample = {
       repetition,
       features,
-      rawTimings,
+      rawTimings: [...this.keyEventLog],
       textEntered,
       totalDurationMs: Number(totalDurationMs.toFixed(2))
     };
+
+    this.debugLogger.debug('capture', 'capture_sample_computed', {
+      repetition,
+      textLength: textEntered.length,
+      keyEventsCount: keyEventLogLength,
+      featureCount: Object.keys(features).length,
+      totalDurationMs: sample.totalDurationMs
+    });
+
+    return sample;
   }
 
-  private normalizeKeyName(key: string): string {
-    if (key === '.') {
-      return 'period';
+  // O backend recusa H e DD fora de (0, 5] s; UD > 5 s implica DD > 5 s, então basta checar H e DD.
+  private assertIntervalsWithinBackendLimits(features: KeystrokeFeatures): void {
+    for (const [featureKey, seconds] of Object.entries(features)) {
+      if (!featureKey.startsWith('H.') && !featureKey.startsWith('DD.')) {
+        continue;
+      }
+      if (seconds > MAX_INTERVAL_SECONDS || seconds <= 0) {
+        this.debugLogger.debug('capture', 'capture_sample_rejected', {
+          reason: seconds > MAX_INTERVAL_SECONDS ? 'interval_above_backend_limit' : 'interval_not_positive',
+          featureKey,
+          seconds
+        });
+        throw new Error(seconds > MAX_INTERVAL_SECONDS ? LONG_PAUSE_MESSAGE : INVALID_SEQUENCE_MESSAGE);
+      }
     }
-    if (key === '5') {
-      return 'five';
-    }
-    if (key === 'Enter') {
-      return 'Return';
-    }
-    if (key.length === 1 && key >= 'A' && key <= 'Z') {
-      return `Shift.${key.toLowerCase()}`;
-    }
-    return key;
   }
 }

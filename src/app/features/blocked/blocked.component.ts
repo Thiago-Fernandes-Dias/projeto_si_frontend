@@ -3,6 +3,7 @@ import { PercentPipe } from '@angular/common';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { KeystrokeCaptureService } from '../../core/services/keystroke-capture.service';
+import { DebugLoggerService } from '../../core/services/debug-logger.service';
 import { BlockedAttempt } from '../../core/models/user.model';
 
 @Component({
@@ -15,6 +16,7 @@ import { BlockedAttempt } from '../../core/models/user.model';
 export class BlockedComponent {
   private readonly authService = inject(AuthService);
   private readonly captureService = inject(KeystrokeCaptureService);
+  private readonly debugLogger = inject(DebugLoggerService);
   private readonly router = inject(Router);
 
   // Cópia tirada ao abrir a tela: a página continua exibindo os dados enquanto "Tentar novamente" limpa o estado.
@@ -26,6 +28,9 @@ export class BlockedComponent {
   }
 
   tryAgain(): void {
+    this.debugLogger.debug('session', 'blocked_retry_clicked', {
+      username: this.attempt?.username
+    });
     this.authService.clearBlockedAttempt();
     this.captureService.stopRecording();
     this.captureService.reset();

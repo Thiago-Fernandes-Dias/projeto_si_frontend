@@ -84,6 +84,6 @@ describe('SessionComponent', () => {
 
     expect(captureService.currentText()).toBe('');
     expect(captureService.isRecording()).toBeFalse();
-    expect(captureService.getCompletedKeys()).toEqual([]);
+    expect(captureService.getEventKeyLog()).toEqual([]);
   });
 });

@@ -10,8 +10,54 @@ describe('UserSessionService', () => {
     service = TestBed.inject(UserSessionService);
   });
 
-  it('deve inicializar com usuário padrão de demonstração', () => {
-    expect(service.currentUser()).not.toBeNull();
+  it('deve iniciar sem usuário cadastrado, sem usuário padrão de demonstração', () => {
+    expect(service.currentUser()).toBeNull();
+    expect(service.currentRepetitionCount()).toBe(0);
+  });
+
+  it('deve marcar o cadastro como fluxo de registro', () => {
+    service.registerUser('novo_usuario', 'senha1234');
+
+    expect(service.currentUser()?.flow).toBe('registration');
+    expect(service.currentUser()?.currentPassword).toBeUndefined();
+  });
+
+  it('deve iniciar a troca de senha com a nova senha como alvo da coleta', () => {
+    service.registerUser('outro_usuario', 'senha1234');
+    service.addEnrollmentSample({
+      repetition: 1,
+      textEntered: 'senha1234',
+      features: {},
+      rawTimings: [],
+      totalDurationMs: 500
+    });
+
+    service.startPasswordChange('usuario_troca', 'senhaAtual123', 'novaSenha456');
+
+    const user = service.currentUser();
+    expect(user?.flow).toBe('password-change');
+    expect(user?.username).toBe('usuario_troca');
+    expect(user?.currentPassword).toBe('senhaAtual123');
+    expect(user?.targetPassword).toBe('novaSenha456');
+    expect(user?.isEnrolled).toBeFalse();
+    expect(service.currentRepetitionCount()).toBe(0);
+  });
+
+  it('deve descartar as amostras coletadas em clearEnrollment', () => {
+    service.registerUser('usuario_coleta', 'senha1234');
+    service.addEnrollmentSample({
+      repetition: 1,
+      textEntered: 'senha1234',
+      features: {},
+      rawTimings: [],
+      totalDurationMs: 500
+    });
+
+    service.clearEnrollment();
+
+    expect(service.currentRepetitionCount()).toBe(0);
+    expect(service.currentUser()?.isEnrolled).toBeFalse();
+    expect(service.currentUser()?.username).toBe('usuario_coleta');
   });
 
   it('deve cadastrar um novo usuário e reiniciar as repetições', () => {

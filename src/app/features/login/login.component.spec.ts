@@ -5,7 +5,7 @@ import { UserSessionService } from '../../core/services/user-session.service';
 import { KeystrokeCaptureService } from '../../core/services/keystroke-capture.service';
 import { BiometricApiService } from '../../core/services/biometric-api.service';
 import { AuthService } from '../../core/services/auth.service';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { AuthenticationResponse, KeystrokeSample } from '../../core/models/keystroke.model';
 
 const SESSION_STORAGE_KEY = 'keystrokeAuthSession';
@@ -23,7 +23,7 @@ describe('LoginComponent', () => {
     repetition: 1,
     textEntered: '.tie5Roanl',
     features: { 'H.period': 0.14 },
-    rawTimings: [{ key: '.', code: 'Period', pressTime: 100, releaseTime: 240 }],
+    rawTimings: [{ key: '.', code: 'Period', timestamp: 100, eventType: 'KEY_DOWN' }],
     totalDurationMs: 140
   };
 
@@ -75,7 +75,17 @@ describe('LoginComponent', () => {
     expect(panel?.querySelector('h1')?.textContent).toContain('Keystroke Dynamics Biometrics');
   });
 
-  it('deve marcar INVALID_CREDENTIALS quando a senha textual for incorreta', () => {
+  it('deve oferecer cadastro e troca de senha como ações separadas no painel', () => {
+    const panel = (fixture.nativeElement as HTMLElement).querySelector('.toggle-panel');
+
+    expect(panel?.querySelector('.register-link')?.getAttribute('href')).toBe('/register');
+    expect(panel?.querySelector('.register-link')?.textContent).toContain('Cadastrar');
+    expect(panel?.querySelector('.change-password-link')?.getAttribute('href')).toBe('/change-password');
+    expect(panel?.querySelector('.change-password-link')?.textContent).toContain('Trocar senha');
+    expect(panel?.textContent).not.toContain('ou quer trocar a senha');
+  });
+
+  it('deve marcar INVALID_CREDENTIALS quando nenhuma tecla foi capturada ou a senha for incorreta', () => {
     component.onPasswordSubmitted('senha_errada');
 
     expect(component.authResult).not.toBeNull();
@@ -84,9 +94,61 @@ describe('LoginComponent', () => {
     expect(router.navigate).not.toHaveBeenCalled();
   });
 
-  it('deve abrir a sessão e navegar para /session quando a decisão for GENUINE', () => {
-    biometricApiSpy.authenticate.and.returnValue(of(buildResponse('GENUINE', 0.94)));
-    spyOn(captureService, 'computeSample').and.returnValue(capturedSample);
+  it('deve consultar o backend mesmo para senhas diferentes da sessão local e exibir INVALID_CREDENTIALS retornado pela API', () => {
+    const invalidResponse: AuthenticationResponse = {
+      decision: 'INVALID_CREDENTIALS',
+      confidenceScore: 0,
+      thresholdScore: 0.75,
+      inferenceTimeMs: 0,
+      message: 'Usuário ou senha incorretos.',
+      userAverageHoldTimeMs: 0,
+      attemptAverageHoldTimeMs: 110,
+      accessToken: null,
+      accessTokenExpiresAt: null
+    };
+    biometricApiSpy.authenticate.and.returnValue(of(invalidResponse));
+    spyOn(captureService, 'computeSample').and.returnValue({
+      ...capturedSample,
+      textEntered: 'outra_senha123'
+    });
+
+    component.onPasswordSubmitted('outra_senha123');
+
+    expect(captureService.computeSample).toHaveBeenCalledWith(1);
+    expect(biometricApiSpy.authenticate).toHaveBeenCalledWith(
+      jasmine.objectContaining({
+        username: 'usuario_teste',
+        passwordAttempt: 'outra_senha123'
+      })
+    );
+    expect(component.authResult?.decision).toBe('INVALID_CREDENTIALS');
+    expect(component.authResult?.message).toBe('Usuário ou senha incorretos.');
+    expect(authService.isAuthenticated()).toBeFalse();
+    expect(router.navigate).not.toHaveBeenCalled();
+  });
+
+  it('deve chamar API e exibir resultado GENUINE quando autenticado com sucesso', () => {
+    const mockAuthResponse: AuthenticationResponse = {
+      decision: 'GENUINE',
+      confidenceScore: 0.94,
+      thresholdScore: 0.75,
+      inferenceTimeMs: 15,
+      message: 'Acesso Permitido',
+      accessToken: 'jwt-token-123',
+      accessTokenExpiresAt: '2026-11-14T18:00:00Z'
+    };
+    biometricApiSpy.authenticate.and.returnValue(of(mockAuthResponse));
+
+    spyOn(captureService, 'computeSample').and.returnValue({
+      repetition: 1,
+      textEntered: '.tie5Roanl',
+      features: { 'H.period': 0.14 },
+      rawTimings: [
+        { key: '.', code: 'Period', timestamp: 100, eventType: 'KEY_DOWN' },
+        { key: '.', code: 'Period', timestamp: 240, eventType: 'KEY_UP' }
+      ],
+      totalDurationMs: 140
+    });
 
     component.onPasswordSubmitted('.tie5Roanl');
 
@@ -96,6 +158,8 @@ describe('LoginComponent', () => {
     expect(authService.isAuthenticated()).toBeTrue();
     expect(authService.currentSession()?.username).toBe('usuario_teste');
     expect(authService.currentSession()?.confidenceScore).toBe(0.94);
+    expect(authService.currentSession()?.accessToken).toBe('jwt-token-123');
+    expect(authService.currentSession()?.accessTokenExpiresAt).toBe('2026-11-14T18:00:00Z');
     expect(router.navigate).toHaveBeenCalledWith(['/session']);
   });
 
@@ -120,5 +184,19 @@ describe('LoginComponent', () => {
 
     expect(authService.blockedAttempt()).toBeNull();
     expect(router.navigate).not.toHaveBeenCalledWith(['/blocked']);
+  });
+
+  it('deve exibir mensagem de erro caso ocorra falha na API ou indisponibilidade', () => {
+    biometricApiSpy.authenticate.and.returnValue(
+      throwError(() => new Error('Não foi possível conectar ao servidor. Verifique se a API está em execução.'))
+    );
+    spyOn(captureService, 'computeSample').and.returnValue(capturedSample);
+
+    component.onPasswordSubmitted('.tie5Roanl');
+
+    expect(component.isAuthenticating).toBeFalse();
+    expect(component.errorMessage).toContain('Não foi possível conectar ao servidor');
+    expect(authService.isAuthenticated()).toBeFalse();
+    expect(router.navigate).not.toHaveBeenCalled();
   });
 });

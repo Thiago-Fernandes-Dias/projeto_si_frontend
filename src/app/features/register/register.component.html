@@ -73,6 +73,11 @@
         </button>
       </div>
 
+      <p class="field-hint rules-hint">
+        Usuário: 3 a 50 caracteres (letras sem acento, números e . _ &#64; + -).<br />
+        Senha: {{ passwordMinLength }} a {{ passwordMaxLength }} caracteres, sem acentos (´ ` ~ ^ ¨); o ç é permitido.
+      </p>
+
       @if (errorMessage) {
         <div class="alert alert-error" role="alert">
           <i class="bx bxs-error-circle" aria-hidden="true"></i>
@@ -80,11 +85,9 @@
         </div>
       }
 
-      <button type="submit" class="btn" [disabled]="isSubmitting">
-        {{ isSubmitting ? 'Cadastrando...' : 'Prosseguir para a coleta' }}
-        @if (!isSubmitting) {
-          <i class="bx bx-right-arrow-alt" aria-hidden="true"></i>
-        }
+      <button type="submit" class="btn">
+        Prosseguir para a coleta
+        <i class="bx bx-right-arrow-alt" aria-hidden="true"></i>
       </button>
 
       <p class="field-hint">

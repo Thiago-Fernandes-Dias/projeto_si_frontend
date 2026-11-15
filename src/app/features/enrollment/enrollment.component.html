@@ -7,7 +7,7 @@
         (click)="goBack()"
         [disabled]="isSubmitting || submissionSuccess"
         title="Voltar"
-        aria-label="Voltar para o cadastro"
+        [attr.aria-label]="backButtonLabel"
       >
         <i class="bx bx-arrow-back" aria-hidden="true"></i>
       </button>
@@ -15,7 +15,7 @@
       <h1>Coleta de Amostras</h1>
 
       <p class="form-subtitle">
-        Senha cadastrada para reprodução: <strong>{{ targetPassword }}</strong><br />
+        {{ isPasswordChange ? 'Nova senha para reprodução' : 'Senha cadastrada para reprodução' }}: <strong>{{ targetPassword }}</strong><br />
         Usuário: <strong>{{ currentUsername }}</strong>
       </p>
 
@@ -57,7 +57,7 @@
       @if (submissionSuccess) {
         <div class="alert alert-success" role="status">
           <i class="bx bxs-check-circle" aria-hidden="true"></i>
-          <span>Coleta de 5 amostras concluída com sucesso! Redirecionando para login...</span>
+          <span>{{ successMessage }}</span>
         </div>
       }
 
@@ -65,11 +65,34 @@
         <label>Digite sua senha e pressione Enter</label>
         <app-keystroke-input
           #keystrokeInput
-          [disabled]="isSubmitting || submissionSuccess"
+          [disabled]="isSubmitting || submissionSuccess || isEnrollmentComplete"
           placeholder="Digite a senha e tecle Enter..."
           (textSubmitted)="onSampleSubmitted($event)"
         ></app-keystroke-input>
       </div>
+
+      @if (canRetrySubmission) {
+        <button
+          type="button"
+          class="btn proceed-button retry-button"
+          (click)="retrySubmission()"
+          [disabled]="isSubmitting"
+        >
+          Tentar enviar novamente
+          <i class="bx bx-refresh" aria-hidden="true"></i>
+        </button>
+      }
+
+      @if (submissionSuccess) {
+        <button
+          type="button"
+          class="btn proceed-button"
+          (click)="goToLogin()"
+        >
+          Prosseguir para o login
+          <i class="bx bx-right-arrow-alt" aria-hidden="true"></i>
+        </button>
+      }
     </div>
   </div>
 

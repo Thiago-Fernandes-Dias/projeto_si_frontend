@@ -41,32 +41,22 @@ npm install
 make install
 ```
 
-### Passo 2: Iniciar a Mock API (Terminal 1)
-```bash
-make mock-install
-make mock-dev
-```
-A Mock API iniciará em: **`http://localhost:5000`**.
-
-### Passo 3: Iniciar o Frontend Angular (Terminal 2)
+### Passo 2: Iniciar o Frontend Angular
 ```bash
 npm start
 # ou usando o Makefile:
 make dev
 ```
 Acesse a aplicação no navegador em: **`http://localhost:4200`**.  
-O frontend está configurado via [`proxy.conf.json`](proxy.conf.json) para repassar todas as chamadas `/api/*` diretamente para a Mock API em `http://127.0.0.1:5000`.
+O frontend está configurado via [`proxy.conf.json`](proxy.conf.json) para repassar todas as chamadas `/api/*` diretamente para o backend em `http://127.0.0.1:5000`.
 
-### Passo 4: Executar a Suíte de Testes Automatizados
+### Passo 3: Executar a Suíte de Testes Automatizados
 ```bash
-# Testes unitários do Frontend (33 testes Jasmine/Karma)
+# Testes unitários do Frontend Jasmine/Karma
 make test
-
-# Testes unitários da Mock API (6 testes Python unittest)
-make mock-test
 ```
 
-### Passo 5: Gerar Build de Produção
+### Passo 4: Gerar Build de Produção
 ```bash
 NG_CLI_ANALYTICS=false npm run build -- --configuration production
 # ou usando o Makefile:
@@ -76,50 +66,22 @@ Os arquivos otimizados serão gerados no diretório `dist/keystroke-auth-fronten
 
 ---
 
-## 3. Mock API em Python (Flask)
+## 3. Como Executar Com Docker
 
-A Mock API localiza-se na pasta dedicada [`mock_api/`](mock_api/) e foi projetada para emular as decisões do modelo de biometria comportamental baseado nas características temporais ($H$, $DD$, $UD$).
+A aplicação possui suporte para execução via Docker ou Docker Compose.
 
-### Endpoints Disponíveis:
+### Execução com Docker Compose
 
-| Método | Endpoint | Descrição |
-|---|---|---|
-| `GET` | `/api/health` | Verificação de integridade e status da API |
-| `POST` | `/api/register` | Recebe usuário e senha cadastrados |
-| `POST` | `/api/enrollment` | Recebe o lote com as 5 amostras e calcula a média de Hold Time |
-| `POST` | `/api/authenticate` | Valida credencial e compara o ritmo de digitação ($H$), retornando `GENUINE` ou `IMPOSTOR` |
+```bash
+docker compose up --build
+# ou em segundo plano:
+docker compose up -d --build
+# ou usando o Makefile:
+make compose-up
+```
+Acesse a aplicação em **`http://localhost:4200`**.
 
-### Lógica de Decisão Biometria na Mock API:
-- **Genuíno:** Se o Hold Time médio da digitação estiver próximo à média calibrada nas 5 repetições do usuário (diferença $\le 75\text{ ms}$) e dentro dos limites fisiológicos humanos (entre $45\text{ ms}$ e $280\text{ ms}$).
-- **Impostor:** Se a senha textual estiver correta, porém a cadência de digitação divergir significativamente da média histórica do usuário.
-- **Credenciais Inválidas:** Se a senha textual digitada estiver incorreta.
-
----
-
-## 4. Como Executar Com Docker
-
-A aplicação possui suporte completo para execução em containers individuais ou de forma orquestrada com **Docker Compose**.
-
-### Modo Orquestrado com Docker Compose (Frontend + Mock API Juntos)
-
-Esta é a forma recomendada de executar a stack completa em containers isolados:
-- Container **`keystroke-mock-api`**: Executa a Mock API em Python/Flask.
-- Container **`keystroke-frontend`**: Executa a aplicação Angular compilada servida via servidor Nginx. O Nginx atua como proxy reverso roteando requisições com prefixo `/api/` diretamente para o container `mock-api:5000`.
-
-1. **Subir os containers (Build e Start):**
-   ```bash
-   docker compose up --build
-   # ou em segundo plano:
-   docker compose up -d --build
-   # ou usando o Makefile:
-   make compose-up
-   ```
-
-2. **Acessar a Aplicação:**
-   - **Frontend:** [http://localhost:4200](http://localhost:4200)
-   - **Mock API (Healthcheck):** [http://localhost:5001/api/health](http://localhost:5001/api/health) (ou através do proxy do frontend em [http://localhost:4200/api/health](http://localhost:4200/api/health))
-
-3. **Encerrar os containers:**
+2. **Encerrar os containers:**
    ```bash
    docker compose down
    # ou usando o Makefile:
@@ -159,7 +121,7 @@ make docker-dev
 
 ---
 
-## 5. Resumo de Comandos do Makefile
+## 4. Resumo de Comandos do Makefile
 
 O projeto inclui um [Makefile](Makefile) que padroniza os comandos mais frequentes:
 
@@ -168,27 +130,23 @@ O projeto inclui um [Makefile](Makefile) que padroniza os comandos mais frequent
 | `make help` | Exibe o menu com todos os comandos disponíveis |
 | `make install` | Instala dependências do frontend via npm |
 | `make dev` | Inicia o servidor Angular local com proxy em `http://localhost:4200` |
-| `make test` | Executa a suíte de 33 testes unitários do frontend em modo headless |
+| `make test` | Executa a suíte de testes unitários do frontend em modo headless |
 | `make build` | Compila o bundle otimizado de produção em `dist/` |
-| `make mock-install` | Instala dependências Python da Mock API (`flask`, `flask-cors`) |
-| `make mock-dev` | Inicia a Mock API Python na porta `5000` |
-| `make mock-test` | Executa os testes automatizados da Mock API em Python |
 | `make docker-build` | Cria a imagem Docker de produção (`keystroke-auth-frontend`) |
 | `make docker-run` | Sobe o container Docker servindo a aplicação na porta `4200` |
 | `make docker-dev` | Inicia container Node interativo para desenvolvimento |
-| `make compose-up` | Constrói e inicia os containers frontend e mock-api via Docker Compose |
+| `make compose-up` | Constrói e inicia o container frontend via Docker Compose |
 | `make compose-down` | Encerra os containers orquestrados via Docker Compose |
 | `make clean` | Remove as pastas `dist/` e cache `.angular/` |
 
 ---
 
-## 6. Estrutura do Projeto e Documentação
+## 5. Estrutura do Projeto e Documentação
 
 - [requisitos.md](requisitos.md): Especificação oficial de requisitos, colunas do benchmark CMU (`DSL-StrongPasswordData.csv`), formato dos payloads JSON e regras biométricas ($H$, $DD$, $UD$).
 - [AGENTS.md](AGENTS.md): Diretrizes de engenharia de software e governança para agentes de IA atuando no repositório.
-- [`docker-compose.yml`](docker-compose.yml): Orquestração multi-container do frontend e da Mock API.
-- [`mock_api/`](mock_api/): Mock API em Python/Flask com emulação de inferência biométrica e containerização (`Dockerfile`).
-- [`proxy.conf.json`](proxy.conf.json): Configuração de proxy reverso do Angular CLI para direcionar `/api/*` à Mock API.
+- [`docker-compose.yml`](docker-compose.yml): Orquestração de container do frontend via Docker Compose.
+- [`proxy.conf.json`](proxy.conf.json): Configuração de proxy reverso do Angular CLI para direcionar `/api/*` ao backend local.
 - `src/app/core/`: Serviços de captura temporal (`KeystrokeCaptureService`), API REST (`BiometricApiService`) e modelos de dados.
 - `src/app/features/`: Componentes das telas de cadastro (`register`), coleta de 5 amostras (`enrollment`) e login biométrico (`login`).
 - `src/app/shared/`: Componente de campo de entrada protegido (`KeystrokeInputComponent`).

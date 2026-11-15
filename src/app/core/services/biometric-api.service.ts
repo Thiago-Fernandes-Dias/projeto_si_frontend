@@ -1,85 +1,184 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable, catchError, of } from 'rxjs';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { Observable, catchError, tap, throwError } from 'rxjs';
 import {
   AuthenticationPayload,
   AuthenticationResponse,
-  EnrollmentPayload
+  HealthResponse,
+  PasswordChangeRequest,
+  PasswordChangeResponse,
+  RegistrationRequest,
+  RegistrationResponse
 } from '../models/keystroke.model';
-import { RegistrationRequest } from '../models/user.model';
+import { DebugLoggerService } from './debug-logger.service';
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
 
 @Injectable({
   providedIn: 'root'
 })
 export class BiometricApiService {
   private readonly http = inject(HttpClient);
+  private readonly debugLogger = inject(DebugLoggerService);
   private readonly baseUrl = '/api';
 
-  registerUser(request: RegistrationRequest): Observable<{ success: boolean; message: string }> {
+  registerUser(request: RegistrationRequest): Observable<RegistrationResponse> {
+    const correlationId = this.debugLogger.currentCorrelationId ?? undefined;
+    this.debugLogger.debug(
+      'register',
+      'api_register_request',
+      {
+        username: request.username,
+        passwordLength: request.password.length,
+        samplesCount: request.samples.length
+      },
+      correlationId
+    );
     return this.http
-      .post<{ success: boolean; message: string }>(`${this.baseUrl}/register`, request)
+      .post<RegistrationResponse>(`${this.baseUrl}/register`, request)
       .pipe(
-        catchError(() =>
-          of({
-            success: true,
-            message: `Usuário '${request.username}' cadastrado com sucesso.`
-          })
+        tap((response) =>
+          this.debugLogger.debug(
+            'register',
+            'api_register_response',
+            {
+              username: request.username,
+              success: response.success,
+              samplesRegistered: response.samplesRegistered,
+              calculatedAverageHoldMs: response.calculatedAverageHoldMs
+            },
+            correlationId
+          )
+        ),
+        catchError((error: HttpErrorResponse) =>
+          this.handleError('register', 'Falha ao registrar usuário e amostras.', error, correlationId)
         )
       );
   }
 
-  submitEnrollment(
-    payload: EnrollmentPayload
-  ): Observable<{ success: boolean; message: string; samplesRegistered: number }> {
+  // Contrato da seção 5.4 do requisitos.md; o endpoint ainda não existe no projeto-si-backend.
+  changePassword(request: PasswordChangeRequest): Observable<PasswordChangeResponse> {
+    const correlationId = this.debugLogger.currentCorrelationId ?? undefined;
+    this.debugLogger.debug(
+      'password-change',
+      'api_change_password_request',
+      {
+        username: request.username,
+        newPasswordLength: request.newPassword.length,
+        samplesCount: request.samples.length
+      },
+      correlationId
+    );
     return this.http
-      .post<{ success: boolean; message: string; samplesRegistered: number }>(
-        `${this.baseUrl}/enrollment`,
-        payload
-      )
+      .post<PasswordChangeResponse>(`${this.baseUrl}/change-password`, request)
       .pipe(
-        catchError(() =>
-          of({
-            success: true,
-            message: `Lote com ${payload.samplesCount} amostras recebido e modelo calibrado.`,
-            samplesRegistered: payload.samplesCount
-          })
+        tap((response) =>
+          this.debugLogger.debug(
+            'password-change',
+            'api_change_password_response',
+            {
+              username: request.username,
+              success: response.success,
+              samplesRegistered: response.samplesRegistered
+            },
+            correlationId
+          )
+        ),
+        catchError((error: HttpErrorResponse) =>
+          this.handleError('password-change', 'Falha ao trocar a senha.', error, correlationId)
         )
       );
   }
 
   authenticate(payload: AuthenticationPayload): Observable<AuthenticationResponse> {
+    const correlationId = this.debugLogger.currentCorrelationId ?? undefined;
+    this.debugLogger.debug(
+      'login',
+      'api_authenticate_request',
+      {
+        username: payload.username,
+        passwordLength: payload.passwordAttempt.length,
+        totalDurationMs: payload.sample.totalDurationMs,
+        featureCount: Object.keys(payload.sample.features).length
+      },
+      correlationId
+    );
     return this.http
       .post<AuthenticationResponse>(`${this.baseUrl}/authenticate`, payload)
       .pipe(
-        catchError(() => {
-          // Simulação local baseada em limiar temporal caso o backend Python esteja offline
-          return of(this.simulateLocalBiometricDecision(payload));
-        })
+        tap((response) =>
+          this.debugLogger.debug(
+            'login',
+            'api_authenticate_response',
+            {
+              username: payload.username,
+              decision: response.decision,
+              confidenceScore: response.confidenceScore,
+              thresholdScore: response.thresholdScore,
+              inferenceTimeMs: response.inferenceTimeMs,
+              userAverageHoldTimeMs: response.userAverageHoldTimeMs,
+              attemptAverageHoldTimeMs: response.attemptAverageHoldTimeMs,
+              tokenIssued: Boolean(response.accessToken)
+            },
+            correlationId
+          )
+        ),
+        catchError((error: HttpErrorResponse) =>
+          this.handleError('login', 'Falha ao realizar autenticação biométrica.', error, correlationId)
+        )
       );
   }
 
-  private simulateLocalBiometricDecision(payload: AuthenticationPayload): AuthenticationResponse {
-    const rawKeys = payload.sample.rawTimings;
-    const holdTimes = rawKeys.map((k) => ((k.releaseTime ?? k.pressTime) - k.pressTime) / 1000);
-    const averageHoldSeconds =
-      holdTimes.reduce((acc, current) => acc + current, 0) / (holdTimes.length || 1);
+  checkHealth(): Observable<HealthResponse> {
+    return this.http
+      .get<HealthResponse>(`${this.baseUrl}/health`)
+      .pipe(
+        catchError((error: HttpErrorResponse) =>
+          this.handleError('http', 'Falha ao verificar integridade do serviço.', error)
+        )
+      );
+  }
 
-    // Heurística de simulação: digitações humanas comuns ficam entre 0.05s e 0.25s
-    const isHumanHold = averageHoldSeconds >= 0.05 && averageHoldSeconds <= 0.28;
-    const confidenceScore = isHumanHold ? 0.91 : 0.42;
-    const decision = confidenceScore >= 0.75 ? 'GENUINE' : 'IMPOSTOR';
+  private handleError(
+    flow: 'register' | 'password-change' | 'enrollment' | 'login' | 'http',
+    defaultMessage: string,
+    error: HttpErrorResponse,
+    correlationId?: string
+  ): Observable<never> {
+    let resolvedMessage = defaultMessage;
 
-    return {
-      decision,
-      confidenceScore,
-      thresholdScore: 0.75,
-      inferenceTimeMs: 14.2,
-      message:
-        decision === 'GENUINE'
-          ? 'Padrão biométrico compatível com o perfil legítimo cadastrado.'
-          : 'Padrão biométrico rejeitado: ritmo de digitação diverge do perfil esperado.',
-      userAverageHoldTimeMs: 130,
-      attemptAverageHoldTimeMs: Math.round(averageHoldSeconds * 1000)
-    };
+    if (error.status === 0) {
+      resolvedMessage = 'Não foi possível conectar ao servidor. Verifique se a API está em execução.';
+    } else if (typeof error.error?.message === 'string') {
+      resolvedMessage = error.error.message;
+    } else if (typeof error.error?.detail === 'string') {
+      resolvedMessage = error.error.detail;
+    } else if (typeof error.error?.title === 'string') {
+      resolvedMessage = error.error.title;
+    } else if (typeof error.error === 'string') {
+      resolvedMessage = error.error;
+    } else if (error.message) {
+      resolvedMessage = error.message;
+    }
+
+    this.debugLogger.debug(
+      flow,
+      'api_error',
+      {
+        status: error.status,
+        message: resolvedMessage
+      },
+      correlationId
+    );
+
+    return throwError(() => new ApiError(resolvedMessage, error.status));
   }
 }

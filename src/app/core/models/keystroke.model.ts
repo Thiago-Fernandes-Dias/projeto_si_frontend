@@ -1,8 +1,11 @@
+export type RawEventType = 'KEY_DOWN' | 'KEY_UP';
+export type KeyEventType = RawEventType;
+
 export interface RawKeyEvent {
   key: string;
   code: string;
-  pressTime: number;
-  releaseTime?: number;
+  timestamp: number;
+  eventType: RawEventType;
 }
 
 export interface KeystrokeFeatures {
@@ -17,12 +20,27 @@ export interface KeystrokeSample {
   totalDurationMs: number;
 }
 
-export interface EnrollmentPayload {
+export interface RegistrationRequest {
   username: string;
-  passwordLength: number;
-  samplesCount: number;
+  password: string;
   samples: KeystrokeSample[];
 }
+
+export interface RegistrationResponse {
+  success: boolean;
+  message: string;
+  samplesRegistered: number;
+  calculatedAverageHoldMs?: number;
+}
+
+export interface PasswordChangeRequest {
+  username: string;
+  currentPassword: string;
+  newPassword: string;
+  samples: KeystrokeSample[];
+}
+
+export type PasswordChangeResponse = RegistrationResponse;
 
 export type BiometricDecision = 'GENUINE' | 'IMPOSTOR' | 'INVALID_CREDENTIALS';
 
@@ -41,4 +59,12 @@ export interface AuthenticationResponse {
   message: string;
   userAverageHoldTimeMs?: number;
   attemptAverageHoldTimeMs?: number;
+  accessToken?: string | null;
+  accessTokenExpiresAt?: string | null;
+}
+
+export interface HealthResponse {
+  status: string;
+  service: string;
+  timestamp: string;
 }
