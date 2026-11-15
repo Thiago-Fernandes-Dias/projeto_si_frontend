@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { UserSessionService } from '../../core/services/user-session.service';
+import { BiometricApiService } from '../../core/services/biometric-api.service';
 import { DebugLoggerService } from '../../core/services/debug-logger.service';
 import {
   PASSWORD_DEAD_KEY_MESSAGE,
@@ -25,12 +26,14 @@ import {
 export class RegisterComponent {
   private readonly router = inject(Router);
   private readonly userSession = inject(UserSessionService);
+  private readonly biometricApi = inject(BiometricApiService);
   private readonly debugLogger = inject(DebugLoggerService);
 
   username = '';
   password = '';
   confirmPassword = '';
   errorMessage = '';
+  isSubmitting = false;
   showPassword = false;
   showConfirmPassword = false;
 
@@ -88,11 +91,52 @@ export class RegisterComponent {
     }
 
     const trimmedUsername = this.username.trim();
-    this.userSession.registerUser(trimmedUsername, this.password);
-    this.debugLogger.debug('register', 'register_completed', {
-      username: trimmedUsername,
-      nextRoute: '/enrollment'
+    const correlationId = this.debugLogger.newCorrelationId();
+    this.isSubmitting = true;
+    this.debugLogger.debug(
+      'register',
+      'register_availability_check_started',
+      { username: trimmedUsername },
+      correlationId
+    );
+
+    this.debugLogger.withCorrelation(correlationId, () => {
+      this.biometricApi.checkUsernameAvailability(trimmedUsername).subscribe({
+        next: (response) => {
+          this.isSubmitting = false;
+
+          if (!response.available) {
+            this.errorMessage = 'Este nome de usuário já está em uso. Escolha outro.';
+            this.debugLogger.debug(
+              'register',
+              'register_username_unavailable',
+              { username: trimmedUsername },
+              correlationId
+            );
+            return;
+          }
+
+          this.userSession.registerUser(trimmedUsername, this.password);
+          this.debugLogger.debug(
+            'register',
+            'register_completed',
+            { username: trimmedUsername, nextRoute: '/enrollment' },
+            correlationId
+          );
+          this.router.navigate(['/enrollment']);
+        },
+        error: (error: Error) => {
+          this.isSubmitting = false;
+          this.errorMessage =
+            error?.message || 'Falha ao verificar a disponibilidade do usuário.';
+          this.debugLogger.debug(
+            'register',
+            'register_availability_check_failed',
+            { username: trimmedUsername, error: this.errorMessage },
+            correlationId
+          );
+        }
+      });
     });
-    this.router.navigate(['/enrollment']);
   }
 }

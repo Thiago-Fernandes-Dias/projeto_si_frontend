@@ -10,6 +10,7 @@ import {
   RegistrationRequest,
   RegistrationResponse
 } from '../models/keystroke.model';
+import { UsernameAvailabilityResponse } from '../models/user.model';
 import { DebugLoggerService } from './debug-logger.service';
 
 export class ApiError extends Error {
@@ -29,6 +30,38 @@ export class BiometricApiService {
   private readonly http = inject(HttpClient);
   private readonly debugLogger = inject(DebugLoggerService);
   private readonly baseUrl = '/api';
+
+  checkUsernameAvailability(username: string): Observable<UsernameAvailabilityResponse> {
+    const correlationId = this.debugLogger.currentCorrelationId ?? undefined;
+    this.debugLogger.debug(
+      'register',
+      'api_username_availability_request',
+      { username },
+      correlationId
+    );
+    return this.http
+      .get<UsernameAvailabilityResponse>(`${this.baseUrl}/username-availability`, {
+        params: { username }
+      })
+      .pipe(
+        tap((response) =>
+          this.debugLogger.debug(
+            'register',
+            'api_username_availability_response',
+            { username: response.username, available: response.available },
+            correlationId
+          )
+        ),
+        catchError((error: HttpErrorResponse) =>
+          this.handleError(
+            'register',
+            'Falha ao verificar a disponibilidade do usuário.',
+            error,
+            correlationId
+          )
+        )
+      );
+  }
 
   registerUser(request: RegistrationRequest): Observable<RegistrationResponse> {
     const correlationId = this.debugLogger.currentCorrelationId ?? undefined;

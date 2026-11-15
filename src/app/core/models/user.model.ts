@@ -12,6 +12,11 @@ export interface RegisteredUser {
   createdAt: string;
 }
 
+export interface UsernameAvailabilityResponse {
+  username: string;
+  available: boolean;
+}
+
 export interface AuthenticatedSession {
   username: string;
   confidenceScore: number;

@@ -1,6 +1,8 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { RegisterComponent } from './register.component';
 import { Router } from '@angular/router';
+import { of, throwError } from 'rxjs';
+import { BiometricApiService } from '../../core/services/biometric-api.service';
 import { UserSessionService } from '../../core/services/user-session.service';
 
 describe('RegisterComponent', () => {
@@ -8,13 +10,21 @@ describe('RegisterComponent', () => {
   let fixture: ComponentFixture<RegisterComponent>;
   let routerSpy: jasmine.SpyObj<Router>;
   let userSession: UserSessionService;
+  let biometricApiSpy: jasmine.SpyObj<BiometricApiService>;
 
   beforeEach(async () => {
     routerSpy = jasmine.createSpyObj('Router', ['navigate']);
+    biometricApiSpy = jasmine.createSpyObj('BiometricApiService', ['checkUsernameAvailability']);
+    biometricApiSpy.checkUsernameAvailability.and.returnValue(
+      of({ username: 'usuario', available: true })
+    );
 
     await TestBed.configureTestingModule({
       imports: [RegisterComponent],
-      providers: [{ provide: Router, useValue: routerSpy }]
+      providers: [
+        { provide: Router, useValue: routerSpy },
+        { provide: BiometricApiService, useValue: biometricApiSpy }
+      ]
     }).compileComponents();
 
     fixture = TestBed.createComponent(RegisterComponent);
@@ -199,16 +209,59 @@ describe('RegisterComponent', () => {
     });
   });
 
-  it('deve salvar as credenciais localmente e navegar para /enrollment sem consumir a API', () => {
+  it('deve salvar as credenciais localmente e navegar para /enrollment após confirmar disponibilidade', () => {
     component.username = 'caique_rodrigues';
     component.password = '.tie5Roanl';
     component.confirmPassword = '.tie5Roanl';
 
     component.onSubmit();
 
+    expect(biometricApiSpy.checkUsernameAvailability).toHaveBeenCalledWith('caique_rodrigues');
     expect(userSession.currentUser()?.username).toBe('caique_rodrigues');
     expect(userSession.currentUser()?.targetPassword).toBe('.tie5Roanl');
     expect(routerSpy.navigate).toHaveBeenCalledWith(['/enrollment']);
+  });
+
+  it('deve impedir o avanço quando o username já estiver em uso', () => {
+    biometricApiSpy.checkUsernameAvailability.and.returnValue(
+      of({ username: 'caique_rodrigues', available: false })
+    );
+
+    component.username = 'caique_rodrigues';
+    component.password = '.tie5Roanl';
+    component.confirmPassword = '.tie5Roanl';
+
+    component.onSubmit();
+
+    expect(component.isSubmitting).toBeFalse();
+    expect(component.errorMessage).toContain('já está em uso');
+    expect(routerSpy.navigate).not.toHaveBeenCalled();
+  });
+
+  it('deve exibir erro e não avançar quando a verificação de disponibilidade falhar', () => {
+    biometricApiSpy.checkUsernameAvailability.and.returnValue(
+      throwError(() => new Error('Servidor indisponível.'))
+    );
+
+    component.username = 'caique_rodrigues';
+    component.password = '.tie5Roanl';
+    component.confirmPassword = '.tie5Roanl';
+
+    component.onSubmit();
+
+    expect(component.isSubmitting).toBeFalse();
+    expect(component.errorMessage).toBe('Servidor indisponível.');
+    expect(routerSpy.navigate).not.toHaveBeenCalled();
+  });
+
+  it('deve verificar disponibilidade com o username normalizado por trim', () => {
+    component.username = '  caique_rodrigues  ';
+    component.password = '.tie5Roanl';
+    component.confirmPassword = '.tie5Roanl';
+
+    component.onSubmit();
+
+    expect(biometricApiSpy.checkUsernameAvailability).toHaveBeenCalledWith('caique_rodrigues');
   });
 
   it('não deve navegar quando a validação falha', () => {
