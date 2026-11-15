@@ -33,6 +33,15 @@ export interface RegistrationResponse {
   calculatedAverageHoldMs?: number;
 }
 
+export interface PasswordChangeRequest {
+  username: string;
+  currentPassword: string;
+  newPassword: string;
+  samples: KeystrokeSample[];
+}
+
+export type PasswordChangeResponse = RegistrationResponse;
+
 export type BiometricDecision = 'GENUINE' | 'IMPOSTOR' | 'INVALID_CREDENTIALS';
 
 

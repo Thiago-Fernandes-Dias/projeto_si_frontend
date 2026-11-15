@@ -35,7 +35,7 @@ export class LoginComponent implements OnInit {
 
   ngOnInit(): void {
     const user = this.userSession.currentUser();
-    this.username = user?.username || 's002_cmu';
+    this.username = user?.username ?? '';
   }
 
   onPasswordSubmitted(enteredText: string): void {

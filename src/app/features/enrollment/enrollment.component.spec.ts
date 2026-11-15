@@ -3,7 +3,7 @@ import { EnrollmentComponent } from './enrollment.component';
 import { Router } from '@angular/router';
 import { UserSessionService } from '../../core/services/user-session.service';
 import { KeystrokeCaptureService } from '../../core/services/keystroke-capture.service';
-import { BiometricApiService } from '../../core/services/biometric-api.service';
+import { ApiError, BiometricApiService } from '../../core/services/biometric-api.service';
 import { of, throwError } from 'rxjs';
 
 describe('EnrollmentComponent', () => {
@@ -16,7 +16,7 @@ describe('EnrollmentComponent', () => {
 
   beforeEach(async () => {
     routerSpy = jasmine.createSpyObj('Router', ['navigate']);
-    biometricApiSpy = jasmine.createSpyObj('BiometricApiService', ['registerUser']);
+    biometricApiSpy = jasmine.createSpyObj('BiometricApiService', ['registerUser', 'changePassword']);
     biometricApiSpy.registerUser.and.returnValue(
       of({ success: true, message: 'Ok', samplesRegistered: 5, calculatedAverageHoldMs: 110.5 })
     );
@@ -194,5 +194,186 @@ describe('EnrollmentComponent', () => {
     expect(component.submissionSuccess).toBeFalse();
     expect(component.isSubmitting).toBeFalse();
     expect(component.validationError).toBe('Falha no servidor ao processar amostras.');
+  });
+
+  describe('falha no envio do lote', () => {
+    function collectFiveSamples(): void {
+      spyOn(captureService, 'computeSample').and.callFake((rep: number) => ({
+        repetition: rep,
+        textEntered: '.tie5Roanl',
+        features: { 'H.period.0': 0.12 },
+        rawTimings: [],
+        totalDurationMs: 1200
+      }));
+
+      for (let i = 1; i <= 5; i++) {
+        component.onSampleSubmitted('.tie5Roanl');
+      }
+      fixture.detectChanges();
+    }
+
+    function element(): HTMLElement {
+      return fixture.nativeElement as HTMLElement;
+    }
+
+    it('deve manter as amostras e permitir reenviar o mesmo lote após erro do servidor', () => {
+      biometricApiSpy.registerUser.and.returnValues(
+        throwError(() => new ApiError('Erro interno no servidor.', 500)),
+        of({ success: true, message: 'Ok', samplesRegistered: 5 })
+      );
+
+      collectFiveSamples();
+
+      expect(component.canRetrySubmission).toBeTrue();
+      expect(component.currentRepetition).toBe(5);
+      expect(element().querySelector<HTMLInputElement>('.keystroke-field')?.disabled).toBeTrue();
+
+      const retryButton = element().querySelector<HTMLButtonElement>('.retry-button');
+      expect(retryButton?.textContent).toContain('Tentar enviar novamente');
+
+      retryButton?.click();
+      fixture.detectChanges();
+
+      expect(biometricApiSpy.registerUser).toHaveBeenCalledTimes(2);
+      const [firstPayload] = biometricApiSpy.registerUser.calls.argsFor(0);
+      const [secondPayload] = biometricApiSpy.registerUser.calls.argsFor(1);
+      expect(secondPayload.samples).toEqual(firstPayload.samples);
+      expect(component.submissionSuccess).toBeTrue();
+      expect(component.canRetrySubmission).toBeFalse();
+      expect(component.validationError).toBeNull();
+      expect(element().querySelector('.retry-button')).toBeNull();
+      expect(element().querySelector('.proceed-button')?.textContent).toContain('Prosseguir para o login');
+    });
+
+    it('deve permitir reenviar após falha de conexão', () => {
+      biometricApiSpy.registerUser.and.returnValue(
+        throwError(() => new ApiError('Não foi possível conectar ao servidor.', 0))
+      );
+
+      collectFiveSamples();
+
+      expect(component.canRetrySubmission).toBeTrue();
+      expect(component.validationError).toBe('Não foi possível conectar ao servidor.');
+    });
+
+    it('deve descartar as amostras e recomeçar a coleta quando o backend recusar o lote (400)', () => {
+      biometricApiSpy.registerUser.and.returnValue(
+        throwError(() => new ApiError('A amostra 3 possui features inválidas ou incompatíveis com a senha.', 400))
+      );
+
+      collectFiveSamples();
+
+      expect(component.currentRepetition).toBe(0);
+      expect(component.canRetrySubmission).toBeFalse();
+      expect(component.submissionSuccess).toBeFalse();
+      expect(component.validationError).toContain('A amostra 3 possui features inválidas');
+      expect(component.validationError).toContain('Digite a senha novamente 5 vezes');
+      expect(element().querySelector<HTMLInputElement>('.keystroke-field')?.disabled).toBeFalse();
+      expect(element().querySelector('.retry-button')).toBeNull();
+    });
+
+    it('deve orientar a escolher outro nome quando o usuário já existir (409), sem considerar a coleta concluída', () => {
+      biometricApiSpy.registerUser.and.returnValue(
+        throwError(() => new ApiError('Nome de usuário indisponível.', 409))
+      );
+
+      collectFiveSamples();
+
+      expect(component.submissionSuccess).toBeFalse();
+      expect(component.canRetrySubmission).toBeFalse();
+      expect(component.validationError).toBe(
+        'Nome de usuário indisponível. Volte ao cadastro e escolha outro nome de usuário.'
+      );
+      expect(element().querySelector('.proceed-button')).toBeNull();
+      expect(element().querySelector<HTMLButtonElement>('.back-button')?.disabled).toBeFalse();
+    });
+  });
+
+  describe('troca de senha', () => {
+    beforeEach(() => {
+      userSession.startPasswordChange('teste_user', 'senhaAtual123', '.tie5Roanl');
+      biometricApiSpy.changePassword.and.returnValue(
+        of({ success: true, message: 'Senha alterada.', samplesRegistered: 5, calculatedAverageHoldMs: 110 })
+      );
+      fixture.detectChanges();
+    });
+
+    function collectFiveSamples(): void {
+      spyOn(captureService, 'computeSample').and.callFake((rep: number) => ({
+        repetition: rep,
+        textEntered: '.tie5Roanl',
+        features: { 'H.period.0': 0.12 },
+        rawTimings: [],
+        totalDurationMs: 1200
+      }));
+
+      for (let i = 1; i <= 5; i++) {
+        component.onSampleSubmitted('.tie5Roanl');
+      }
+      fixture.detectChanges();
+    }
+
+    function element(): HTMLElement {
+      return fixture.nativeElement as HTMLElement;
+    }
+
+    it('deve pedir a nova senha no subtítulo e voltar para a troca de senha', () => {
+      expect(element().querySelector('.form-subtitle')?.textContent).toContain('Nova senha para reprodução: .tie5Roanl');
+
+      const backButton = element().querySelector<HTMLButtonElement>('.back-button');
+      expect(backButton?.getAttribute('aria-label')).toBe('Voltar para a troca de senha');
+      backButton?.click();
+      expect(routerSpy.navigate).toHaveBeenCalledWith(['/change-password']);
+    });
+
+    it('deve enviar as 5 amostras da nova senha para a troca de senha, e não para o cadastro', () => {
+      collectFiveSamples();
+
+      expect(biometricApiSpy.registerUser).not.toHaveBeenCalled();
+      expect(biometricApiSpy.changePassword).toHaveBeenCalledTimes(1);
+      const request = biometricApiSpy.changePassword.calls.mostRecent().args[0];
+      expect(request.username).toBe('teste_user');
+      expect(request.currentPassword).toBe('senhaAtual123');
+      expect(request.newPassword).toBe('.tie5Roanl');
+      expect(request.samples.length).toBe(5);
+
+      expect(component.submissionSuccess).toBeTrue();
+      expect(element().querySelector('.alert-success')?.textContent).toContain('Senha alterada com sucesso!');
+      expect(element().querySelector('.proceed-button')?.textContent).toContain('Prosseguir para o login');
+    });
+
+    it('deve avisar que a troca de senha ainda não existe no servidor quando o backend responder 404', () => {
+      biometricApiSpy.changePassword.and.returnValue(
+        throwError(() => new ApiError('Http failure response for /api/change-password: 404 Not Found', 404))
+      );
+
+      collectFiveSamples();
+
+      expect(component.submissionSuccess).toBeFalse();
+      expect(component.canRetrySubmission).toBeFalse();
+      expect(component.validationError).toContain('A troca de senha ainda não está disponível no servidor');
+      expect(element().querySelector('.retry-button')).toBeNull();
+    });
+
+    it('deve orientar a conferir os dados quando a senha atual for recusada (401), sem reenviar', () => {
+      biometricApiSpy.changePassword.and.returnValue(
+        throwError(() => new ApiError('Usuário ou senha atual incorretos.', 401))
+      );
+
+      collectFiveSamples();
+
+      expect(component.canRetrySubmission).toBeFalse();
+      expect(component.validationError).toBe('Usuário ou senha atual incorretos. Volte e confira os dados informados.');
+      expect(element().querySelector<HTMLButtonElement>('.back-button')?.disabled).toBeFalse();
+    });
+
+    it('deve permitir reenviar após erro do servidor', () => {
+      biometricApiSpy.changePassword.and.returnValue(throwError(() => new ApiError('Erro interno.', 500)));
+
+      collectFiveSamples();
+
+      expect(component.canRetrySubmission).toBeTrue();
+      expect(element().querySelector('.retry-button')).not.toBeNull();
+    });
   });
 });

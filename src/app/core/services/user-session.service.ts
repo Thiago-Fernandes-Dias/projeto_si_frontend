@@ -8,14 +8,7 @@ import { DebugLoggerService } from './debug-logger.service';
 })
 export class UserSessionService {
   private readonly debugLogger = inject(DebugLoggerService);
-  private readonly defaultPassword = '.tie5Roanl';
-  private readonly targetUser = signal<RegisteredUser | null>({
-    username: 's002_cmu',
-    targetPassword: this.defaultPassword,
-    isEnrolled: true,
-    enrollmentSamples: [],
-    createdAt: new Date().toISOString()
-  });
+  private readonly targetUser = signal<RegisteredUser | null>(null);
 
   readonly currentUser = computed(() => this.targetUser());
   readonly enrollmentSamples = signal<KeystrokeSample[]>([]);
@@ -27,6 +20,7 @@ export class UserSessionService {
     const newUser: RegisteredUser = {
       username,
       targetPassword,
+      flow: 'registration',
       isEnrolled: false,
       enrollmentSamples: [],
       createdAt: new Date().toISOString()
@@ -36,6 +30,24 @@ export class UserSessionService {
     this.debugLogger.debug('register', 'user_session_initialized', {
       username,
       passwordLength: targetPassword.length
+    });
+  }
+
+  // A coleta seguinte (/enrollment) captura a nova senha, que vira a targetPassword.
+  startPasswordChange(username: string, currentPassword: string, newPassword: string): void {
+    this.targetUser.set({
+      username,
+      targetPassword: newPassword,
+      flow: 'password-change',
+      currentPassword,
+      isEnrolled: false,
+      enrollmentSamples: [],
+      createdAt: new Date().toISOString()
+    });
+    this.enrollmentSamples.set([]);
+    this.debugLogger.debug('password-change', 'user_session_password_change_started', {
+      username,
+      newPasswordLength: newPassword.length
     });
   }
 

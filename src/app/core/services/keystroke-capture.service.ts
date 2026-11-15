@@ -6,6 +6,25 @@ import {
 } from '../models/keystroke.model';
 import { DebugLoggerService } from './debug-logger.service';
 
+const MODIFIER_KEYS = ['Shift', 'Control', 'Alt', 'AltGraph', 'Meta', 'CapsLock'];
+const NAVIGATION_KEYS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
+
+// Limite de H e DD aceito pelo backend (VetorCaracteristicas.MaximoIntervaloSegundos).
+export const MAX_INTERVAL_SECONDS = 5;
+
+const INVALID_SEQUENCE_MESSAGE = 'Sequência de digitação inválida. Tente digitar em um ritmo mais lento';
+const LONG_PAUSE_MESSAGE =
+  'Você demorou mais de 5 segundos em uma tecla ou entre duas teclas. Digite a senha novamente em ritmo contínuo.';
+
+// O par KEY_DOWN/KEY_UP é casado pela tecla física: soltar o Shift antes da letra muda o `key` do keyup ('R' -> 'r').
+function physicalKeyId(event: { key: string; code: string }): string {
+  return event.code || event.key;
+}
+
+function isSamePhysicalKey(first: RawKeyEvent, second: RawKeyEvent): boolean {
+  return physicalKeyId(first) === physicalKeyId(second);
+}
+
 export function normalizeKeyName(key: string): string {
   if (key === '.') {
     return 'period';
@@ -60,6 +79,8 @@ export function determineExpectedIntervals(password: string): string[] {
 export class KeystrokeCaptureService {
   private readonly debugLogger = inject(DebugLoggerService);
   private keyEventLog: RawKeyEvent[] = [];
+  private readonly pendingKeyDowns = new Map<string, number>();
+  private discardNextComposedKey = false;
 
   readonly isRecording = signal<boolean>(false);
   readonly currentText = signal<string>('');
@@ -82,6 +103,8 @@ export class KeystrokeCaptureService {
     const previousEvents = this.keyEventLog.length;
     const previousLength = this.currentText().length;
     this.keyEventLog = [];
+    this.pendingKeyDowns.clear();
+    this.discardNextComposedKey = false;
     this.currentText.set('');
     this.lastAnomaly.set(null);
     if (previousEvents > 0 || previousLength > 0) {
@@ -110,7 +133,7 @@ export class KeystrokeCaptureService {
       return false;
     }
 
-    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) {
+    if (NAVIGATION_KEYS.includes(event.key)) {
       this.reset('navigation_key');
       this.lastAnomaly.set('Navegação no texto não permitida durante a coleta.');
       this.debugLogger.debug('capture', 'capture_anomaly', {
@@ -119,8 +142,24 @@ export class KeystrokeCaptureService {
       return false;
     }
 
-    if (['Shift', 'Control', 'Alt', 'Meta', 'CapsLock'].includes(event.key)) {
+    if (event.key === 'Dead') {
+      this.reset('dead_key');
+      this.discardNextComposedKey = true;
+      this.lastAnomaly.set('Acentos (´ ` ~ ^ ¨) não são suportados na senha. O campo foi reiniciado.');
+      this.debugLogger.debug('capture', 'capture_anomaly', {
+        anomaly: 'dead_key'
+      });
+      return false;
+    }
+
+    if (MODIFIER_KEYS.includes(event.key)) {
       return true;
+    }
+
+    // Depois de uma tecla morta, o próximo keydown traz o caractere acentuado composto (ex.: 'á').
+    if (this.discardNextComposedKey) {
+      this.discardNextComposedKey = false;
+      return false;
     }
 
     const rawEvent: RawKeyEvent = {
@@ -131,14 +170,28 @@ export class KeystrokeCaptureService {
     };
 
     this.keyEventLog.push(rawEvent);
+    const keyId = physicalKeyId(event);
+    this.pendingKeyDowns.set(keyId, (this.pendingKeyDowns.get(keyId) ?? 0) + 1);
     this.currentText.update((text) => text + event.key);
     this.lastAnomaly.set(null);
     return true;
   }
 
   handleKeyUp(event: KeyboardEvent): void {
-    if (['Shift', 'Control', 'Alt', 'Meta', 'CapsLock'].includes(event.key)) {
+    if (MODIFIER_KEYS.includes(event.key)) {
       return;
+    }
+
+    // Ignora keyup sem keydown registrado, como o do Backspace que acabou de reiniciar o campo.
+    const keyId = physicalKeyId(event);
+    const pendingCount = this.pendingKeyDowns.get(keyId) ?? 0;
+    if (pendingCount === 0) {
+      return;
+    }
+    if (pendingCount === 1) {
+      this.pendingKeyDowns.delete(keyId);
+    } else {
+      this.pendingKeyDowns.set(keyId, pendingCount - 1);
     }
 
     const rawEvent: RawKeyEvent = {
@@ -201,7 +254,7 @@ export class KeystrokeCaptureService {
         keyEventsCount: keyEventLogLength,
         expectedEventsCount: textEntered.length * 2
       });
-      throw new Error('Sequência de digitação inválida. Tente digitar em um ritmo mais lento');
+      throw new Error(INVALID_SEQUENCE_MESSAGE);
     }
 
     const features: KeystrokeFeatures = {};
@@ -213,13 +266,13 @@ export class KeystrokeCaptureService {
       const third = this.keyEventLog.at(i + 2);
 
       if (first?.eventType === 'KEY_DOWN' && second?.eventType === 'KEY_UP' && third?.eventType === 'KEY_DOWN') {
-        if (i % 2 !== 0 || first.key !== second.key) {
+        if (i % 2 !== 0 || !isSamePhysicalKey(first, second)) {
           this.debugLogger.debug('capture', 'capture_sample_rejected', {
             repetition,
             reason: 'invalid_down_up_order',
             eventIndex: i
           });
-          throw new Error('Sequência de digitação inválida. Tente digitar em um ritmo mais lento');
+          throw new Error(INVALID_SEQUENCE_MESSAGE);
         }
 
         const currentKey = normalizeKeyName(first.key);
@@ -241,13 +294,13 @@ export class KeystrokeCaptureService {
         featuresCounter.set(`UD.${currentKey}.${nextKey}`, udTimeFeatCount + 1);
         features[`UD.${currentKey}.${nextKey}.${udTimeFeatCount}`] = udTime;
       } else if (first?.eventType === 'KEY_UP' && second?.eventType === 'KEY_DOWN' && third?.eventType === 'KEY_UP') {
-        if (i % 2 !== 1 || second.key !== third.key) {
+        if (i % 2 !== 1 || !isSamePhysicalKey(second, third)) {
           this.debugLogger.debug('capture', 'capture_sample_rejected', {
             repetition,
             reason: 'invalid_up_down_order',
             eventIndex: i
           });
-          throw new Error('Sequência de digitação inválida. Tente digitar em um ritmo mais lento');
+          throw new Error(INVALID_SEQUENCE_MESSAGE);
         }
 
         if (i === keyEventLogLength - 3) {
@@ -263,9 +316,11 @@ export class KeystrokeCaptureService {
           reason: 'invalid_event_sequence',
           eventIndex: i
         });
-        throw new Error('Sequência de digitação inválida. Tente digitar em um ritmo mais lento');
+        throw new Error(INVALID_SEQUENCE_MESSAGE);
       }
     }
+
+    this.assertIntervalsWithinBackendLimits(features);
 
     const firstEvent = this.keyEventLog.at(0);
     const lastEvent = this.keyEventLog.at(-1);
@@ -289,5 +344,22 @@ export class KeystrokeCaptureService {
     });
 
     return sample;
+  }
+
+  // O backend recusa H e DD fora de (0, 5] s; UD > 5 s implica DD > 5 s, então basta checar H e DD.
+  private assertIntervalsWithinBackendLimits(features: KeystrokeFeatures): void {
+    for (const [featureKey, seconds] of Object.entries(features)) {
+      if (!featureKey.startsWith('H.') && !featureKey.startsWith('DD.')) {
+        continue;
+      }
+      if (seconds > MAX_INTERVAL_SECONDS || seconds <= 0) {
+        this.debugLogger.debug('capture', 'capture_sample_rejected', {
+          reason: seconds > MAX_INTERVAL_SECONDS ? 'interval_above_backend_limit' : 'interval_not_positive',
+          featureKey,
+          seconds
+        });
+        throw new Error(seconds > MAX_INTERVAL_SECONDS ? LONG_PAUSE_MESSAGE : INVALID_SEQUENCE_MESSAGE);
+      }
+    }
   }
 }

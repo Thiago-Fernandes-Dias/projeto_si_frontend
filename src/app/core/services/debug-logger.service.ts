@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { RuntimeConfigService } from '../config/runtime-config.service';
 
-export type DebugLogFlow = 'register' | 'enrollment' | 'login' | 'capture' | 'session' | 'http';
+export type DebugLogFlow = 'register' | 'password-change' | 'enrollment' | 'login' | 'capture' | 'session' | 'http';
 
 export type DebugLogPrimitive = string | number | boolean | null | undefined;
 export type DebugLogValue = DebugLogPrimitive | readonly DebugLogPrimitive[] | Readonly<Record<string, DebugLogPrimitive>>;
@@ -22,6 +22,9 @@ const SENSITIVE_EXACT_KEYS = new Set([
   'targetpassword',
   'confirmpassword',
   'passwordattempt',
+  'currentpassword',
+  'newpassword',
+  'confirmnewpassword',
   'senha',
   'senhahash',
   'secret',
