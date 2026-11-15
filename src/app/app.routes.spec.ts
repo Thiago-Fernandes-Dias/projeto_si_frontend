@@ -11,6 +11,7 @@ import { BlockedComponent } from './features/blocked/blocked.component';
 import { UserSessionService } from './core/services/user-session.service';
 import { EnrollmentComponent } from './features/enrollment/enrollment.component';
 import { ChangePasswordComponent } from './features/change-password/change-password.component';
+import { LoginComponent } from './features/login/login.component';
 
 const SESSION_STORAGE_KEY = 'keystrokeAuthSession';
 
@@ -24,6 +25,23 @@ describe('app routes', () => {
 
   afterEach(() => {
     localStorage.removeItem(SESSION_STORAGE_KEY);
+  });
+
+  it('should open the login page as the start page', async () => {
+    const harness = await RouterTestingHarness.create();
+
+    const component = await harness.navigateByUrl('/', LoginComponent);
+
+    expect(TestBed.inject(Router).url).toBe('/login');
+    expect(component).toBeInstanceOf(LoginComponent);
+  });
+
+  it('should redirect unknown routes to /login', async () => {
+    const harness = await RouterTestingHarness.create();
+
+    await harness.navigateByUrl('/rota-que-nao-existe');
+
+    expect(TestBed.inject(Router).url).toBe('/login');
   });
 
   it('should redirect /session to /login when there is no active session', async () => {
