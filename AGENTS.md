@@ -14,7 +14,7 @@ Este documento estabelece as diretrizes operacionais, arquiteturais e de qualida
 
 ## 2. Boas Práticas de Arquitetura e Engenharia de Software (Stack Angular)
 
-O frontend utiliza o ecossistema moderno do **Angular (v17+)** com **TypeScript estrito**. Todo código desenvolvido deve seguir as seguintes diretrizes:
+O frontend utiliza o ecossistema moderno do **Angular 18** com **TypeScript estrito**. Todo código desenvolvido deve seguir as seguintes diretrizes:
 
 ### 2.1. Arquitetura de Componentes e Estrutura de Pastas
 - **Standalone Components:** Uso exclusivo de componentes autônomos (`standalone: true`). É terminantemente proibido o uso de `NgModule` ou padrões obsoletos de versões antigas do Angular.

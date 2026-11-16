@@ -6,7 +6,11 @@
 
 ## 1. Visão Geral
 
-Este documento detalha os requisitos funcionais, não-funcionais, arquiteturais e a especificação de dados para o frontend desenvolvido em **Angular (v17+)**. O sistema implementa uma interface web para cadastro de usuários, coleta guiada de amostras de digitação (5 repetições da senha), autenticação biométrica comportamental e visualização comparativa de modelos de Aprendizado de Máquina (Random Forest, k-NN e MLP, com e sem HPO).
+Este documento detalha os requisitos funcionais, não-funcionais, arquiteturais e a especificação de dados para o frontend desenvolvido em **Angular 18**. O sistema implementa uma interface web para cadastro de usuários, coleta guiada de amostras de digitação (5 repetições da senha), troca de senha e autenticação biométrica comportamental. O frontend **não treina nem classifica** modelos: ele captura os eventos de teclado, calcula as features `H`, `DD` e `UD` e delega a decisão ao Backend .NET, que por sua vez chama a ML API (`M2005_IDB`).
+
+### 1.1. Algoritmo Biométrico Utilizado
+
+A classificação ocorre na `projeto_si_ml_api` com o **`M2005_IDB`** (*Improved Double Parallel*, Pisani et al., IJCNN 2015): submodelo deslizante de 50 amostras genuínas, submodelo crescente incremental com estatísticas de Welford (`O(1)`) e escore final pela média dos dois, comparado a um limiar calibrado por usuário (`min`/`min_non_outlier`, teto `0.7`). O treinamento é one-class (somente amostras genuínas). O `M2005_IDB` foi selecionado a partir de 52 experimentos nos benchmarks CMU e KeyRecs, com BACC médio `0.8445` (CMU: `BACC = 0.8909`, `FRR = 15.24%`, `FAR = 6.58%`).
 
 ---
 
@@ -33,9 +37,9 @@ Este documento detalha os requisitos funcionais, não-funcionais, arquiteturais 
 
 0. **Página Inicial:** A aplicação abre na tela de login: a rota raiz (`/`) e qualquer rota inexistente redirecionam para `/login`. Novos usuários seguem para o cadastro pelo botão "Cadastrar" do painel do login (RF19).
 1. **Cadastro:** O usuário preenche seus dados (nome/identificador e define sua senha).
-2. **Coleta de Amostras (Enrollment):** O usuário é automaticamente direcionado para a tela de coleta, onde deve digitar a senha cadastrada exatamente **5 vezes**.
-3. **Envio e Calibração:** Ao atingir as 5 repetições válidas, o frontend envia username, senha e os vetores temporais em uma única requisição `POST /api/register`, que cria o usuário e treina o classificador individual. Concluído o envio das 5 amostras, o campo de senha permanece bloqueado e a interface exibe um botão para que o usuário avance manualmente para a tela de login.
-4. **Autenticação:** O usuário realiza login digitando sua credencial; o frontend extrai o vetor biométrico da tentativa e consulta o modelo no backend para autorizar ou bloquear a sessão. O fluxo é linear e guiado, sem menu de navegação aberto.
+2. **Coleta de Amostras (Enrollment):** Após a pré-checagem de disponibilidade do username, o usuário é automaticamente direcionado para a tela de coleta, onde deve digitar a senha cadastrada exatamente **5 vezes**.
+3. **Envio e Calibração:** Ao atingir as 5 repetições válidas, o frontend envia username, senha e as amostras temporais em uma única requisição `POST /api/register`, que cria o usuário, persiste as amostras e delega o treinamento do classificador individual à ML API (`M2005_IDB`). Concluído o envio das 5 amostras, o campo de senha permanece bloqueado e a interface exibe um botão para que o usuário avance manualmente para a tela de login.
+4. **Autenticação:** O usuário realiza login digitando sua credencial; o frontend extrai o vetor biométrico da tentativa e o envia ao backend, que valida a senha e as features e consulta o modelo na ML API para autorizar ou bloquear a sessão. O fluxo é linear e guiado, sem menu de navegação aberto.
 
 ---
 
@@ -79,11 +83,11 @@ Este documento detalha os requisitos funcionais, não-funcionais, arquiteturais 
 
 ### 3.4. Login e Autenticação Biométrica
 - **RF10 - Tela de Autenticação:** Campo de identificação e campo de senha monitorado por serviço de dinâmica de digitação, sem necessidade de configuração ou escolha manual de modelo por parte do usuário final.
-- **RF11 - Consulta de Inferência Automática:** Envio assíncrono do vetor de características da digitação para classificação direta no backend utilizando o modelo calibrado do usuário.
+- **RF11 - Consulta de Inferência Automática:** Envio assíncrono do vetor de características da digitação para o Backend .NET, que valida a senha e as features e consulta a ML API (`M2005_IDB`) utilizando o modelo calibrado do usuário.
 - **RF12 - Decisão de Acesso:** Apresentação clara do resultado retornado pela inteligência artificial:
-  - **Acesso Permitido:** Identidade biométrica compatível (Usuário Genuíno).
-  - **Acesso Bloqueado:** Senha textual correta, mas padrão de ritmo classificado como Impostor.
-  - **Credenciais Inválidas:** Senha textual incorreta.
+  - **Acesso Permitido (`GENUINE`):** Identidade biométrica compatível (Usuário Genuíno); o backend emite o JWT.
+  - **Acesso Bloqueado (`IMPOSTOR`):** Senha textual correta, mas padrão de ritmo classificado como Impostor.
+  - **Credenciais Inválidas (`INVALID_CREDENTIALS`):** Senha textual incorreta, conta bloqueada ou biometria ainda não concluída; a mensagem da API é exibida sem abrir sessão.
 
 - **RF19 - Acessos Separados a Cadastro e Troca de Senha:** O painel da tela de login oferece duas ações distintas: "Cadastrar", que leva a `/register` e serve apenas para novos usuários, e "Trocar senha", que leva a `/change-password`. A troca de senha não passa pela tela de cadastro.
 
@@ -92,7 +96,7 @@ Este documento detalha os requisitos funcionais, não-funcionais, arquiteturais 
 - **RF21 - Coleta da Nova Senha:** Validado o formulário, o usuário é levado à tela de coleta (`/enrollment`, RF03–RF07) para digitar a **nova** senha 5 vezes, pois o backend invalida a biometria e o modelo treinados antes da mudança de senha. Ao concluir as 5 repetições, o frontend envia `POST /api/change-password` (seção 5.4) em vez de `POST /api/register` e, em caso de sucesso, exibe "Senha alterada com sucesso!" com o botão para prosseguir ao login.
 
 ### 3.5. Sessão Autenticada
-- **RF13 - Sessão e Rota Protegida:** Quando a decisão biométrica for `GENUINE`, o frontend registra a sessão do usuário (persistida em `localStorage`) e o direciona para a rota `/session`, protegida por guard (`authGuard`). Acessos à rota sem sessão ativa são redirecionados para `/login`.
+- **RF13 - Sessão e Rota Protegida:** Quando a decisão biométrica for `GENUINE`, o frontend registra a sessão do usuário (persistida em `localStorage`) e o direciona para a rota `/session`, protegida por guard (`authGuard`). O guard valida o JWT em `GET /api/session`; sem token, token expirado ou token emitido antes de uma troca de senha, a sessão local é encerrada e o usuário é redirecionado para `/login`.
 - **RF14 - Encerramento de Sessão:** A área autenticada oferece o botão "Sair", que remove a sessão, apaga a senha digitada e os tempos capturados no login (encerrando a captura) e retorna à tela de login com o campo de senha vazio.
 
 ### 3.6. Acesso Bloqueado
@@ -113,7 +117,7 @@ Este documento detalha os requisitos funcionais, não-funcionais, arquiteturais 
 - **RNF08 - Integração com Backend e Tratamento Estrito de Erros:** A comunicação do frontend é realizada diretamente com os endpoints da API backend (`/api/username-availability`, `/api/register`, `/api/change-password`, `/api/session`, `/api/authenticate`). É proibido o retorno de respostas prontas, mocks ou simulações locais em cenários de falha ou indisponibilidade da API. Todo erro de rede ou status de erro retornado pelo servidor deve ser devidamente capturado, tratado e apresentado de forma clara na interface do usuário.
 - **RNF09 - Orquestração de Container da Aplicação:** Disponibilização de arquivo `docker-compose.yml` para execução da aplicação frontend em container isolado (Angular servido via Nginx) e configuração de proxy reverso do Nginx para encaminhar chamadas `/api/` ao serviço backend.
 - **RNF10 - Identidade Visual:** As telas usam um cartão branco central (cantos de 30 px) dividido em duas metades: o formulário e um painel azul (`#7494ec`) com borda curva. Fonte Poppins (Google Fonts), ícones Boxicons 2.1.4 e fundo em gradiente (`#e2e2e2` → `#c9d6ff`). Cadastro, coleta, sessão autenticada e acesso bloqueado mostram o painel à direita; o login, à esquerda. Ao entrar no cadastro, no login, na sessão autenticada ou no acesso bloqueado, o painel desliza para o seu lado, como na troca entre cadastro e login do modelo visual de referência; a coleta, que vem logo após o cadastro, não repete o movimento. Abaixo de 650 px de largura, o painel fica no topo e o formulário embaixo. As classes visuais compartilhadas ficam em `src/styles.scss`. O campo de senha do login e da coleta continua sendo o `app-keystroke-input` (RF08). Login por outras plataformas (Google, Facebook, GitHub, LinkedIn), recuperação de senha e campo de e-mail do modelo de referência ficam fora do escopo. O fluxo linear da seção 2 é mantido: o painel do cadastro não oferece atalho para o login. Os painéis do cadastro e do login exibem o nome do sistema, "Keystroke Dynamics Biometrics", e a página não tem cabeçalho no topo nem rodapé: só o cartão aparece sobre o fundo. A tela de acesso bloqueado (RF15) usa o mesmo cartão com o painel e o botão em vermelho (`#e05a5a`).
-- **RNF11 - Logs Estruturados e Diagnóstico de Fluxos em Tempo de Execução:** O frontend emite logs de depuração estruturados em JSON exclusivamente no console do navegador (`console.debug`) cobrindo os fluxos de cadastro, coleta/enrollment, captura biométrica e login, propagando `X-Correlation-ID` nas chamadas `/api/` via interceptor HTTP e omitindo senhas, caracteres digitados, chaves nominais de features e tokens JWT. O recurso permanece desativado em builds e containers de produção (`DEBUG_LOGS=false` por padrão), podendo ser habilitado dinamicamente no Docker Compose por meio da variável de ambiente `DEBUG_LOGS` que gera `/runtime-config.json` no entrypoint do Nginx.
+- **RNF11 - Logs Estruturados e Diagnóstico de Fluxos em Tempo de Execução:** O frontend emite logs de depuração estruturados em JSON exclusivamente no console do navegador (`console.debug`) cobrindo os fluxos de cadastro, coleta/enrollment, captura biométrica, login e troca de senha, propagando `X-Correlation-ID` nas chamadas `/api/` via interceptor HTTP e omitindo senhas, caracteres digitados, chaves nominais de features e tokens JWT. O recurso permanece desativado em builds e containers de produção (`DEBUG_LOGS=false` por padrão), podendo ser habilitado dinamicamente no Docker Compose por meio da variável de ambiente `DEBUG_LOGS` que gera `/runtime-config.json` no entrypoint do Nginx.
 
 ---
 
@@ -203,29 +207,47 @@ Quando o usuário conclui as 5 repetições na tela de coleta, o frontend envia 
         "H.Return": 0.0742
       },
       "rawTimings": [
-        { "key": ".", "pressTime": 1024.12, "releaseTime": 1173.22 },
-        { "key": "t", "pressTime": 1422.02, "releaseTime": 1528.92 }
-      ]
+        { "key": ".", "code": "Period", "timestamp": 1024.12, "eventType": "KEY_DOWN" },
+        { "key": ".", "code": "Period", "timestamp": 1173.22, "eventType": "KEY_UP" },
+        { "key": "t", "code": "KeyT", "timestamp": 1422.02, "eventType": "KEY_DOWN" },
+        { "key": "t", "code": "KeyT", "timestamp": 1528.92, "eventType": "KEY_UP" }
+      ],
+      "textEntered": ".tie5Roanl",
+      "totalDurationMs": 2310.45
     },
     {
       "repetition": 2,
-      "features": { "...": "..." }
+      "features": { "...": "..." },
+      "rawTimings": [],
+      "textEntered": ".tie5Roanl",
+      "totalDurationMs": 2288.17
     },
     {
       "repetition": 3,
-      "features": { "...": "..." }
+      "features": { "...": "..." },
+      "rawTimings": [],
+      "textEntered": ".tie5Roanl",
+      "totalDurationMs": 2301.92
     },
     {
       "repetition": 4,
-      "features": { "...": "..." }
+      "features": { "...": "..." },
+      "rawTimings": [],
+      "textEntered": ".tie5Roanl",
+      "totalDurationMs": 2295.4
     },
     {
       "repetition": 5,
-      "features": { "...": "..." }
+      "features": { "...": "..." },
+      "rawTimings": [],
+      "textEntered": ".tie5Roanl",
+      "totalDurationMs": 2318.06
     }
   ]
 }
 ```
+
+> O backend usa `features`, `textEntered` e `totalDurationMs` para validar a amostra. `rawTimings` é aceito no contrato do frontend, mas ignorado e **nunca persistido**; a ML API recebe apenas os vetores posicionais `3n - 2` já mascarados pelo backend.
 
 ### 5.4. Contrato da Troca de Senha (`POST /api/change-password`)
 
@@ -247,8 +269,10 @@ Quando o usuário conclui as 5 repetições na tela de coleta, o frontend envia 
 **Comportamento esperado do backend:**
 1. Validar `newPassword` e `samples` com as mesmas regras de `POST /api/register` (8–64 caracteres, 5 amostras com `textEntered === newPassword` e features válidas) e exigir `newPassword !== currentPassword` → `400` com `{ "success": false, "message": "..." }`.
 2. Verificar `currentPassword` contra o hash do usuário (contando tentativas falhas e respeitando o bloqueio, como no login). Usuário inexistente, senha incorreta ou conta bloqueada → `401` com `{ "success": false, "message": "..." }`, sem revelar se o usuário existe.
-3. Chamar `Usuario.AlterarSenha(novoHash, agora)`, gravar as 5 amostras (`Origem = Cadastro`), concluir o cadastro biométrico e treinar o novo modelo na ML API (`POST /api/enrollment`), que passa a valer por ser posterior a `data_mudanca_senha`.
+3. Chamar `Usuario.AlterarSenha(novoHash, agora)`, gravar as 5 amostras (`Origem = Cadastro`) e treinar o novo modelo na ML API (`POST /api/enrollment`); em sucesso, concluir o cadastro biométrico do usuário. O novo modelo passa a valer por ser posterior a `data_mudanca_senha`.
 4. Responder `200` com `{ "success": true, "message": "...", "samplesRegistered": 5, "calculatedAverageHoldMs": 112.4 }`.
+5. Se o treinamento na ML API falhar, remover as amostras novas, restaurar o hash e `data_mudanca_senha` anteriores, remover modelos criados após a troca (`POST /api/models/rollback`) e responder `502` com `{ "success": false, "message": "..." }`.
+6. Tokens JWT emitidos antes da troca passam a ser recusados em `GET /api/session`, pois a claim `pwd` deixa de coincidir com `data_mudanca_senha`.
 
 ---
 
@@ -273,7 +297,8 @@ src/app/
 │   └── services/
 │       ├── debug-logger.service.ts      # Logger estruturado em JSON (console.debug) com redação de dados sensíveis
 │       ├── keystroke-capture.service.ts # Captura keydown/keyup e calcula H, DD, UD
-│       ├── biometric-api.service.ts     # Comunicação com os endpoints /register, /change-password e /authenticate
+│       ├── biometric-api.service.ts     # Comunicação com /username-availability, /register, /change-password, /authenticate, /session e /health
+│       ├── user-session.service.ts      # Usuário-alvo do cadastro/troca de senha e amostras da coleta em memória
 │       └── auth.service.ts              # Sessão autenticada (localStorage), logout e última tentativa bloqueada
 ├── features/
 │   ├── register/                     # Tela 1: Cadastro de usuário
@@ -288,8 +313,10 @@ src/app/
 └── shared/
     └── components/
         └── keystroke-input/          # Input reutilizável com escuta de performance.now()
+src/app/app.routes.ts                 # Rotas /login, /register, /enrollment, /change-password, /session e /blocked
 src/styles.scss                       # Classes visuais compartilhadas (cartão, painel, campos, botões) do RNF10
 docker-compose.yml                    # Orquestração do container frontend
+nginx.conf                            # SPA + proxy /api/ para backend:5000
 ```
 
 ---
@@ -318,3 +345,4 @@ Este documento segue as diretrizes estabelecidas no [AGENTS.md](file:///Users/th
 | `1.15.0` | 2026-11-15 | Julia Vital | Página inicial alterada para o login: a rota raiz (`/`) e rotas inexistentes redirecionam para `/login` em vez de `/register`. |
 | `1.16.0` | 2026-11-15 | Thiago Dias / Antigravity | `authGuard` passa a validar o JWT em `GET /api/session`; tokens emitidos antes de uma troca de senha são recusados e a sessão local é encerrada. Removido o tratamento de endpoint de troca de senha ausente (`404`). |
 | `1.17.0` | 2026-11-15 | Thiago Dias / Antigravity | Verificação de disponibilidade do username via `GET /api/username-availability` antes de avançar do cadastro para a coleta das amostras iniciais. |
+| `1.18.0` | 2026-11-16 | Thiago Dias / Antigravity | Alinhamento da documentação de requisitos com o estado atual: remoção da referência à visualização de modelos RF/k-NN/MLP e à Mock API, registro do algoritmo `M2005_IDB`, decisão `INVALID_CREDENTIALS`, validação de JWT no `authGuard`, payload real de `KeystrokeSample` (incluindo `rawTimings` ignorado e `textEntered`) e comportamento `502`/rollback na troca de senha. |
