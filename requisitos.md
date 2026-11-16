@@ -47,7 +47,7 @@ A classificação ocorre na `projeto_si_ml_api` com o **`M2005_IDB`** (*Improved
 
 ### 3.1. Cadastro de Usuário
 - **RF01 - Formulário de Cadastro:** A interface deve fornecer campos para identificador de usuário (usuário/e-mail/RA), senha e confirmação de senha. A senha é digitada pelo próprio usuário, sem atalho para preencher a senha padrão do benchmark CMU. Os campos de senha e confirmação de senha devem permitir ocultar o texto digitado por padrão (máscara de senha), oferecendo botões de alternância com ícones exclusivos de olho (`bx-show` e `bx-hide`) para exibir ou ocultar o texto escrito, sem uso de ícones de cadeado.
-  - **Regras de validação (iguais às do backend `projeto-si-backend`):** o identificador, após remover espaços nas pontas e converter para minúsculas, deve ter de 3 a 50 caracteres usando apenas letras sem acento, números e `. _ @ + -`. A senha deve ter de 8 a 64 caracteres e não pode conter letras acentuadas nem os acentos `´ ` ~ ^ ¨`, que dependem de teclas mortas e impedem a captura correta da digitação (o `ç` é permitido). As regras são exibidas como dica abaixo do formulário e verificadas antes do envio ao backend.
+  - **Regras de validação (compatíveis com o backend `projeto-si-backend`):** o identificador, após remover espaços nas pontas e converter para minúsculas, deve ter de 3 a 50 caracteres usando apenas letras sem acento, números e `. _ @ + -` (mesma regex do backend). O backend valida a senha apenas pelo tamanho (8 a 64 caracteres); o frontend acrescenta a restrição de não usar letras acentuadas nem os acentos `´ ` ~ ^ ¨`, que dependem de teclas mortas e impedem a captura correta de `KEY_DOWN`/`KEY_UP` (o `ç`/`Ç` é permitido). As regras são exibidas como dica abaixo do formulário e verificadas antes do envio ao backend.
 - **RF02 - Redirecionamento Automático:** Concluída a validação textual do cadastro com sucesso, o frontend consulta `GET /api/username-availability?username=...`; somente se o username estiver disponível o usuário é direcionado para a tela de coleta de amostras de digitação. Se estiver em uso, o formulário permanece na tela com mensagem de erro.
 
 ### 3.2. Coleta de Amostras de Digitação (*Enrollment*)
@@ -111,7 +111,7 @@ A classificação ocorre na `projeto_si_ml_api` com o **`M2005_IDB`** (*Improved
 - **RNF02 - Bloqueio de Preenchimento Automático:** Desativação mandante de gerenciadores de credenciais e autocomplete (`autocomplete="new-password"`, `autocorrect="off"`, `autocapitalize="off"`, `spellcheck="false"`).
 - **RNF03 - Restrição de Teclado:** A interface deve restringir o uso ou alertar explicitamente caso o acesso ocorra via teclados virtuais móveis (smartphones/tablets), mantendo a compatibilidade estrita com teclados físicos (desktop/laptop).
 - **RNF04 - Desempenho do Listener:** A captura e o processamento de eventos do teclado devem executar em tempo inferior a 5 ms por evento, prevenindo travamento da UI e atraso perceptível de digitação.
-- **RNF05 - Arquitetura Angular Moderna:** Uso obrigatório de Standalone Components, Angular Signals para estado reativo, tipagem estrita de modelos TypeScript, separação de responsabilidades em Services (conforme definido em [AGENTS.md](file:///Users/thiago/Repositories/projeto_si_frontend/AGENTS.md)) e modularização estrutural de componentes de interface com arquivos desacoplados para template (`*.component.html`), folha de estilos (`*.component.scss`) e classe controladora (`*.component.ts`).
+- **RNF05 - Arquitetura Angular Moderna:** Uso obrigatório de Standalone Components, Angular Signals para estado reativo, tipagem estrita de modelos TypeScript, separação de responsabilidades em Services (conforme definido em [AGENTS.md](AGENTS.md)) e modularização estrutural de componentes de interface com arquivos desacoplados para template (`*.component.html`), folha de estilos (`*.component.scss`) e classe controladora (`*.component.ts`).
 - **RNF06 - Containerização com Docker:** Disponibilização de `Dockerfile` para execução da aplicação em container isolado, suportando execução de desenvolvimento e build de produção com servidor Nginx.
 - **RNF07 - Automação via Makefile:** Criação de `Makefile` com comandos padronizados para instalação de dependências (`make install`), build da aplicação (`make build`), execução de testes (`make test`), inicialização do servidor de desenvolvimento local (`make dev`), construção da imagem Docker (`make docker-build`) e execução do container (`make docker-run`).
 - **RNF08 - Integração com Backend e Tratamento Estrito de Erros:** A comunicação do frontend é realizada diretamente com os endpoints da API backend (`/api/username-availability`, `/api/register`, `/api/change-password`, `/api/session`, `/api/authenticate`). É proibido o retorno de respostas prontas, mocks ou simulações locais em cenários de falha ou indisponibilidade da API. Todo erro de rede ou status de erro retornado pelo servidor deve ser devidamente capturado, tratado e apresentado de forma clara na interface do usuário.
@@ -174,37 +174,34 @@ Quando o usuário conclui as 5 repetições na tela de coleta, o frontend envia 
     {
       "repetition": 1,
       "features": {
-        "H.period": 0.1491,
-        "DD.period.t": 0.3979,
-        "UD.period.t": 0.2488,
-        "H.t": 0.1069,
-        "DD.t.i": 0.1674,
-        "UD.t.i": 0.0605,
-        "H.i": 0.1169,
-        "DD.i.e": 0.2212,
-        "UD.i.e": 0.1043,
-        "H.e": 0.1417,
-        "DD.e.five": 1.1885,
-        "UD.e.five": 1.0468,
-        "H.five": 0.1146,
-        "DD.five.Shift.r": 1.6055,
-        "UD.five.Shift.r": 1.4909,
-        "H.Shift.r": 0.1067,
-        "DD.Shift.r.o": 0.7590,
-        "UD.Shift.r.o": 0.6523,
-        "H.o": 0.1016,
-        "DD.o.a": 0.2136,
-        "UD.o.a": 0.1120,
-        "H.a": 0.1349,
-        "DD.a.n": 0.1484,
-        "UD.a.n": 0.0135,
-        "H.n": 0.0932,
-        "DD.n.l": 0.3515,
-        "UD.n.l": 0.2583,
-        "H.l": 0.1338,
-        "DD.l.Return": 0.3509,
-        "UD.l.Return": 0.2171,
-        "H.Return": 0.0742
+        "H.period.0": 0.1491,
+        "DD.period.t.0": 0.3979,
+        "UD.period.t.0": 0.2488,
+        "H.t.0": 0.1069,
+        "DD.t.i.0": 0.1674,
+        "UD.t.i.0": 0.0605,
+        "H.i.0": 0.1169,
+        "DD.i.e.0": 0.2212,
+        "UD.i.e.0": 0.1043,
+        "H.e.0": 0.1417,
+        "DD.e.five.0": 1.1885,
+        "UD.e.five.0": 1.0468,
+        "H.five.0": 0.1146,
+        "DD.five.Shift.r.0": 1.6055,
+        "UD.five.Shift.r.0": 1.4909,
+        "H.Shift.r.0": 0.1067,
+        "DD.Shift.r.o.0": 0.7590,
+        "UD.Shift.r.o.0": 0.6523,
+        "H.o.0": 0.1016,
+        "DD.o.a.0": 0.2136,
+        "UD.o.a.0": 0.1120,
+        "H.a.0": 0.1349,
+        "DD.a.n.0": 0.1484,
+        "UD.a.n.0": 0.0135,
+        "H.n.0": 0.0932,
+        "DD.n.l.0": 0.3515,
+        "UD.n.l.0": 0.2583,
+        "H.l.0": 0.1338
       },
       "rawTimings": [
         { "key": ".", "code": "Period", "timestamp": 1024.12, "eventType": "KEY_DOWN" },
@@ -247,6 +244,8 @@ Quando o usuário conclui as 5 repetições na tela de coleta, o frontend envia 
 }
 ```
 
+> As chaves de `features` incluem o sufixo sequencial gerado por `computeSample` (`H.t.0`, `H.t.1`, `DD.t.e.0`, ...). A senha de exemplo `.tie5Roanl` tem 10 teclas e gera 28 features; o benchmark CMU adiciona `Return` (31 features), mas a aplicação não inclui `Return` na senha.
+>
 > O backend usa `features`, `textEntered` e `totalDurationMs` para validar a amostra. `rawTimings` é aceito no contrato do frontend, mas ignorado e **nunca persistido**; a ML API recebe apenas os vetores posicionais `3n - 2` já mascarados pelo backend.
 
 ### 5.4. Contrato da Troca de Senha (`POST /api/change-password`)
@@ -323,7 +322,7 @@ nginx.conf                            # SPA + proxy /api/ para backend:5000
 
 ## 7. Governança e Histórico de Revisões
 
-Este documento segue as diretrizes estabelecidas no [AGENTS.md](file:///Users/thiago/Repositories/projeto_si_frontend/AGENTS.md) e deve ser atualizado obrigatoriamente a cada nova solicitação de funcionalidade ou alteração de escopo.
+Este documento segue as diretrizes estabelecidas no [AGENTS.md](AGENTS.md) e deve ser atualizado obrigatoriamente a cada nova solicitação de funcionalidade ou alteração de escopo.
 
 | Versão | Data | Autor / Agente | Descrição das Modificações |
 |---|---|---|---|
@@ -346,3 +345,4 @@ Este documento segue as diretrizes estabelecidas no [AGENTS.md](file:///Users/th
 | `1.16.0` | 2026-11-15 | Thiago Dias / Antigravity | `authGuard` passa a validar o JWT em `GET /api/session`; tokens emitidos antes de uma troca de senha são recusados e a sessão local é encerrada. Removido o tratamento de endpoint de troca de senha ausente (`404`). |
 | `1.17.0` | 2026-11-15 | Thiago Dias / Antigravity | Verificação de disponibilidade do username via `GET /api/username-availability` antes de avançar do cadastro para a coleta das amostras iniciais. |
 | `1.18.0` | 2026-11-16 | Thiago Dias / Antigravity | Alinhamento da documentação de requisitos com o estado atual: remoção da referência à visualização de modelos RF/k-NN/MLP e à Mock API, registro do algoritmo `M2005_IDB`, decisão `INVALID_CREDENTIALS`, validação de JWT no `authGuard`, payload real de `KeystrokeSample` (incluindo `rawTimings` ignorado e `textEntered`) e comportamento `502`/rollback na troca de senha. |
+| `1.19.0` | 2026-11-16 | Thiago Dias / OpenCode | Correção do payload de exemplo de `POST /api/register`: chaves de `features` com sufixo sequencial (`H.t.0`, `DD.t.e.0`, ...), remoção de `Return` do exemplo da aplicação (10 teclas → 28 features) e distinção entre as regras de senha do backend (8–64) e do frontend (sem acentos/teclas mortas, exceto `ç`/`Ç`). |
