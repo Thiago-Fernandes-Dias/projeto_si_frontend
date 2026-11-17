@@ -10,7 +10,7 @@ Este documento detalha os requisitos funcionais, não-funcionais, arquiteturais 
 
 ### 1.1. Algoritmo Biométrico Utilizado
 
-A classificação ocorre na `projeto_si_ml_api` com o **`M2005_IDB`** (*Improved Double Parallel*, Pisani et al., IJCNN 2015): submodelo deslizante de 50 amostras genuínas, submodelo crescente incremental com estatísticas de Welford (`O(1)`) e escore final pela média dos dois, comparado a um limiar calibrado por usuário (`min`/`min_non_outlier`, teto `0.7`). O treinamento é one-class (somente amostras genuínas). O `M2005_IDB` foi selecionado a partir de 52 experimentos nos benchmarks CMU e KeyRecs, com BACC médio `0.8445` (CMU: `BACC = 0.8909`, `FRR = 15.24%`, `FAR = 6.58%`).
+A classificação ocorre na `projeto_si_ml_api` com o **`M2005_IDB`** (*Improved Double Parallel*, Pisani et al., IJCNN 2015): submodelo deslizante de 50 amostras genuínas, submodelo crescente incremental com estatísticas de Welford (`O(1)`) e escore final pela média dos dois, comparado a um limiar calibrado por usuário (`min`/`min_non_outlier`, sem teto fixo). O treinamento é one-class (somente amostras genuínas). O `M2005_IDB` foi selecionado a partir de 52 experimentos nos benchmarks CMU e KeyRecs, com BACC médio `0.8445` (CMU: `BACC = 0.8909`, `FRR = 15.24%`, `FAR = 6.58%`).
 
 ---
 

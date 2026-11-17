@@ -14,7 +14,7 @@ A classificação é feita pela `projeto_si_ml_api` com o **`M2005_IDB`** (*Impr
 
 - **Submodelo deslizante** com janela de 50 amostras genuínas recentes.
 - **Submodelo crescente incremental** com estatísticas online de Welford em memória `O(1)`.
-- **Escore final** pela média dos submodelos, comparado a um limiar calibrado por usuário (`min`/`min_non_outlier`, teto `0.7`).
+- **Escore final** pela média dos submodelos, comparado a um limiar calibrado por usuário (`min`/`min_non_outlier`, sem teto fixo).
 - **Treinamento one-class**: apenas amostras genuínas do próprio usuário.
 
 O `M2005_IDB` foi escolhido a partir de 52 experimentos nos benchmarks CMU e KeyRecs, com BACC médio `0.8445` e CMU `BACC = 0.8909` / `FRR = 15.24%` / `FAR = 6.58%`. O frontend contribui garantindo captura temporal consistente: `performance.now()`, rejeição de atalhos/correções, pareamento por tecla física e features na ordem exata da senha.
